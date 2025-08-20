@@ -1,14 +1,21 @@
 [project]
 name = 'glamora'
-description = ''
-authors = []
+description = 'A decentralized fashion social platform with STX tipping and secure storage'
+authors = ['Timothy Terese Chimbiv']
 telemetry = true
 cache_dir = '.\.cache'
 requirements = []
-[contracts.glamora]
-path = 'contracts/glamora.clar'
+
+[contracts.main]
+path = 'contracts/main.clar'
 clarity_version = 3
 epoch = 3.0
+
+[contracts.storage]
+path = 'contracts/storage.clar'
+clarity_version = 3
+epoch = 3.0
+
 [repl.analysis]
 passes = ['check_checker']
 
