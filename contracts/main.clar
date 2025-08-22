@@ -94,6 +94,16 @@
     (var-get total-users) ;; shows the number of users on the platform
 )
 
+;; get total followers
+;; This function returns a user's follower count from storage.clar
+;; it's a function that takes a principal (user's wallet address) and returns the number of followers for that user
+(define-read-only (get-total-followers (user principal))
+    (match (contract-call? .storage get-creator-profile user) 
+    profile (ok (get follower-count profile)) 
+    ERR-PROFILE-NOT-FOUND)
+)
+
+
 ;; get total content
 (define-read-only (get-total-content)
     (var-get total-content) 
