@@ -63,6 +63,33 @@
     user-type: (string-ascii 10)  
 })
 
+;;=================================
+;; NEW SUBSCRIPTION DATA MAPS 
+;;====================================
+
+;; Store subscription details for each user
+;; This map will track individual subscription records, using the subscriber's principal as the key
+(define-map user-subscriptions principal {
+    subscribed-to: principal,   ;; the principal address of the creator the user is subscribed to,
+                                ;; it links the subscription to a specific creator profile
+    tier: uint,
+    subscription-price: uint,   ;; this cost is based on selected tier
+    start-block: uint,          ;; the timestamp to track the start of the subscription period
+    expiry-block: uint,
+    active: bool
+})
+
+;; This map rack creator's subscription statistics  
+;; It keeps count of how many fans pay monthly to follow them and how much money they make,
+;; each creator (identified by their wallet addresses) gets their own set of numbers
+(define-map creator-subscription-stats principal {
+    total-subscribers: uint,
+    total-subscription-revenue: uint,
+    basic-subscribers: uint,
+    premium-subscribers: uint,
+    vip-subscribers: uint
+})
+
 ;; This connects each username to the user address for easy lookup
 (define-map usernames (string-ascii 32) principal)
 
@@ -524,7 +551,6 @@
 
 
 
-  
 
 
 

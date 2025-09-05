@@ -43,9 +43,36 @@
 (define-constant ERR-STORAGE-FAILED (err u12))        ;; Storage contract failed to process the request
 (define-constant ERR-UNAUTHORIZED (err u13))          ;; caller is not authorized to call a function
 
+;;===============================================
+;; NEW SUBSCRIPTION ERROR CODES ADDED
+;;===============================================
+
+(define-constant ERR-INVALID-TIER (err u14))           ;; This when a user selects an invalid tier subscription 
+(define-constant ERR-SUBSCRIPTION-ACTIVE (err u15))    ;; When user already has active subscription
+(define-constant ERR-NO-SUBSCRIPTION (err u16))        ;; If the user has no active subscription  
+(define-constant ERR-SUBSCRIPTION-EXPIRED (err u17))   ;; When user's subscription has expired
+
 ;; Platform fees
 (define-constant PLATFORM-TIP-PERCENTAGE u5)          ;; platform keeps 5% of tips received from creators
 (define-constant MIN-TIP-AMOUNT u100000)              ;; Minimum tip amount 1 stx 
+
+;;============================================
+;; NEW SUBSCRIPTION CONSTANTS 
+;;============================================
+
+;; Subscription tiers and pricing (in microSTX)
+(define-constant BASIC-SUBSCRIPTION-PRICE u5000000)    ;; 5 STX per month for basic tier
+(define-constant PREMIUM-SUBSCRIPTION-PRICE u10000000) ;; 10 STX per month for the premium tier
+(define-constant VIP-SUBSCRIPTION-PRICE u20000000)     ;; 20 STX per month for the VIP tier
+
+;; Subscription duration in blocks (approximately 30 days)
+;; So, 30 days will give us 144 blocks/day 30 days = 4,320 blocks total
+(define-constant SUBSCRIPTION-DURATION u4320)          ;; 30 days worth of blocks 
+
+;; Subscription tiers
+(define-constant TIER-BASIC u1)                        ;; Basic subscription tier
+(define-constant TIER-PREMIUM u2)                      ;; Premium subscription tier  
+(define-constant TIER-VIP u3)                          ;; VIP subscription tier
 
 ;; CONTENT CATEGORIES - these are types of fashion content available on the platform 
 (define-constant CATEGORY-FASHION-SHOW u1)            ;; category 1 for runway parades with models in dazzling outfits
@@ -81,6 +108,16 @@
 ;; It tracks how much STX (in microstacks) the app earns from fees
 (define-data-var platform-fees-earned uint u0)
 
+;;======================================
+;; NEW SUBSCRIPTION DATA VARIABLES
+;;=======================================
+
+;; This will track total active subscriptions across the platform
+(define-data-var total-active-subscriptions uint u0)
+
+;; This will keep track of total subscription revenue earned by platform
+(define-data-var total-subscription-revenue uint u0)
+
 ;; the storage-contract links to STORAGE.clar for secure data storage which is like a big warehouse 
 ;; where all the app data "profiles, posts, tips" is kept safe
 (define-data-var storage-contract principal .storage)
@@ -102,7 +139,6 @@
     profile (ok (get follower-count profile)) 
     ERR-PROFILE-NOT-FOUND)
 )
-
 
 ;; get total content
 (define-read-only (get-total-content)
@@ -136,7 +172,9 @@
         total-content: (var-get total-content),
         next-content-id: (var-get next-content-id),
         total-tips-sent: (var-get total-tips-sent),
-        platform-fees-earned: (var-get platform-fees-earned)
+        platform-fees-earned: (var-get platform-fees-earned),
+        total-active-subscriptions: (var-get total-active-subscriptions), ;;Added how many fans are subscribed to help creators grow
+        total-subscription-revenue: (var-get total-subscription-revenue) ;;Added how much money fans pay to help creators grow
     }
 )
 
@@ -483,7 +521,5 @@
         (ok true) ;; return success to the user
     )
 )
-
-
 
 
