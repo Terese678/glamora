@@ -134,6 +134,26 @@
     (is-eq tx-sender (var-get contract-admin))
 )
 
+;;================================
+;; NEW PRIVATE TIER FUNCTIONS
+;;=====================================
+
+;; @desc: this helper function will add 1 to tier counter only if the subscription matches the target tier
+;; for example, if a user subscribes to Premium which is (tier u2), only premium counter increases
+;; @params:
+;; - current-count      =>uint
+;; - subscription-tier  =>uint
+;; - target-tier uint   =>uint
+(define-private (increment-tier-count (current-count uint) (subscribe-tier uint) (target-tier uint))
+    (+ current-count (if (is-eq subscribe-tier target-tier) u1 u0))
+)
+
+;; @desc: this helper function will Subtract 1 from tier counter if the cancelled subscription matches the target tier  
+;; for example if the user cancels Premium (tier u2), only premium counter decreases
+(define-private (decrement-tier-count (current-count uint) (subscription-tier uint) (target-tier uint))
+    (- current-count (if (is-eq subscription-tier target-tier) u1 u0))
+)
+
 ;;=================================
 ;; Read-only Functions 
 ;;=========================================
@@ -167,6 +187,20 @@
     (map-get? public-user-profiles user)
 )
 
+;;===========================================
+;; NEW SUBSCRIPTION READ-ONLY FUNCTIONS
+;;==============================================
+
+;; get the user's subscription details
+(define-read-only (get-user-subscription (user principal))
+    (map-get? user-subscriptions user)
+)
+
+;; get the creator's subscription statistics
+(define-read-only (get-creator-subscription-stats (creator principal))
+    (map-get? creator-subscription-stats creator)
+)
+
 ;; This shows the wallet address of the public user who owns a specific username
 ;; @param 
 ;; - username: The username to look up in the storage system
@@ -186,6 +220,18 @@
 ;; - tipper: The wallet address of the user who sent the tip
 (define-read-only (get-tip-history (content-id uint) (tipper principal))
     (map-get? tip-history {content-id: content-id, tipper: tipper})
+)
+
+;;===============================
+;; NEW READ-ONLY-FUNCTION 
+;;===============================
+
+;; this will fetch the follow record, follow date and active status
+;; @param 
+;; - follower:
+;; - following:
+(define-read-only (get-follow-record (follower principal) (following principal))
+    (map-get? user-follows {follower: follower, following: following})
 )
 
 ;; @desc this function will check if follow record exists and return its active status, or false if no record found
