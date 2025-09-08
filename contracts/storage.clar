@@ -134,6 +134,26 @@
     (is-eq tx-sender (var-get contract-admin))
 )
 
+;;================================
+;; NEW PRIVATE TIER FUNCTIONS 
+;;=====================================
+
+;; @desc: this helper function will add 1 to tier counter only if the subscription matches the target tier
+;; for example, if a user subscribes to Premium which is (tier u2), only premium counter increases
+;; @params:
+;; - current-count      =>uint
+;; - subscription-tier  =>uint
+;; - target-tier uint   =>uint
+(define-private (increment-tier-count (current-count uint) (subscribe-tier uint) (target-tier uint))
+    (+ current-count (if (is-eq subscribe-tier target-tier) u1 u0))
+)
+
+;; @desc: this helper function will Subtract 1 from tier counter if the cancelled subscription matches the target tier  
+;; for example if the user cancels Premium (tier u2), only premium counter decreases
+(define-private (decrement-tier-count (current-count uint) (subscription-tier uint) (target-tier uint))
+    (- current-count (if (is-eq subscription-tier target-tier) u1 u0))
+)
+
 ;;=================================
 ;; Read-only Functions 
 ;;=========================================
@@ -167,6 +187,20 @@
     (map-get? public-user-profiles user)
 )
 
+;;============================================
+;; NEW SUBSCRIPTION READ-ONLY FUNCTIONS
+;;==================================================
+
+;; get the user's subscription details
+(define-read-only (get-user-subscription (user principal))
+    (map-get? user-subscriptions user)
+)
+
+;; get the creator's subscription statistics
+(define-read-only (get-creator-subscription-stats (creator principal))
+    (map-get? creator-subscription-stats creator)
+)
+
 ;; This shows the wallet address of the public user who owns a specific username
 ;; @param 
 ;; - username: The username to look up in the storage system
@@ -186,6 +220,18 @@
 ;; - tipper: The wallet address of the user who sent the tip
 (define-read-only (get-tip-history (content-id uint) (tipper principal))
     (map-get? tip-history {content-id: content-id, tipper: tipper})
+)
+
+;;===============================
+;; NEW READ-ONLY FUNCTION 
+;;===============================
+
+;; this will fetch the follow record, follow date and active status
+;; @param 
+;; - follower:
+;; - following:
+(define-read-only (get-follow-record (follower principal) (following principal))
+    (map-get? user-follows {follower: follower, following: following})
 )
 
 ;; @desc this function will check if follow record exists and return its active status, or false if no record found
@@ -548,3 +594,122 @@
         (ok true)
     )
 )
+
+;;======================================
+;; NEW SUBSCRIPTION STORAGE FUNCTIONS
+;;=========================================
+
+;; Create new subscription 
+;; @desc - This function saves a new subscription when someone pays to follow a creator through main.clar
+;; @params:
+;; - subscriber (principal)
+;; - creator (principal)
+;; - tier (uint)
+;; - price (uint)
+;; - expiry (uint)
+;; - tier-basic (uint)
+;; - tier-premium (uint)
+;; - tier-vip (uint)
+(define-public (create-subscription 
+    (subscriber principal) 
+    (creator principal) 
+    (tier uint) 
+    (price uint) 
+    (expiry uint) 
+    (tier-basic uint) 
+    (tier-premium uint) 
+    (tier-vip uint))
+    (let
+        (
+            ;; Get creator's current stats (start with zeros if new creator)
+            ;; get the creator's subscription stats; use default zeros if its new (no stats yet),
+            ;; this ensures it works smoothly for first-time subscribers 
+            (creator-stats (default-to 
+                {total-subscribers: u0, total-subscription-revenue: u0, basic-subscribers: u0, 
+                premium-subscribers: u0, vip-subscribers: u0}
+                (map-get? creator-subscription-stats creator))
+            )
+        )
+
+        ;; Only main contract can save subscriptions
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Save the subscription details
+        (map-set user-subscriptions subscriber {
+            subscribed-to: creator,
+            tier: tier,
+            subscription-price: price,
+            start-block: stacks-block-height,
+            expiry-block: expiry,
+            active: true
+        })
+        
+        ;; Update creator stats based on tier type
+        (map-set creator-subscription-stats creator
+            (merge creator-stats {
+                total-subscribers: (+ (get total-subscribers creator-stats) u1),
+                total-subscription-revenue: (+ (get total-subscription-revenue creator-stats) price),
+        
+                ;; we'll use the increment helper funtin for all tiers
+                ;; if the incremented subscription was basic-subscription u1, then only basic-subscription will increase by 1
+                basic-subscribers: (increment-tier-count (get basic-subscribers creator-stats) tier tier-basic),
+
+                premium-subscribers: (increment-tier-count (get premium-subscribers creator-stats) tier tier-premium),
+                vip-subscribers: (increment-tier-count (get vip-subscribers creator-stats) tier tier-vip)
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+;; Cancel subscription
+;; @desc - this function will removes someone's subscription when they want to stop paying 
+;; @param - 
+;; - suscriber (principal)
+;; - tier-basic (uint)
+;; - tier-premium (uint)
+;; - tier-vip (uint) 
+(define-public (cancel-subscription (subscriber principal) (tier-basic uint) (tier-premium uint) (tier-vip uint))
+    (let
+        (
+            ;; Retrieve the subscriber's current subscription record from our storage
+            (subscription-data (unwrap! (map-get? user-subscriptions subscriber) ERR-USER-NOT-FOUND))
+
+            ;; Extract the creator's wallet address from the subscription data
+            ;; so it will tells us which creator will lose this subscriber
+            (creator (get subscribed-to subscription-data))
+
+            ;; Get the subscription tier (1=Basic, 2=Premium, 3=VIP) from the subscription data
+            ;; so we can know which tier counter to decrease in the creator's stats
+            (tier (get tier subscription-data))
+
+            ;; Get the creator's current subscription statistics from storage
+            (creator-stats (unwrap! (map-get? creator-subscription-stats creator) ERR-USER-NOT-FOUND))
+        )
+        
+        ;; Only main contract can cancel subscriptions
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Remove the subscription, after this the subscriber will no longer have any active subscription
+        (map-delete user-subscriptions subscriber)
+        
+        ;; Update creator stats by subtracting the cancelled subscription
+        (map-set creator-subscription-stats creator
+            (merge creator-stats {
+                total-subscribers: (- (get total-subscribers creator-stats) u1),
+        
+                ;; Use decrement helper for all tiers
+                ;; if the cancelled subscription was Basic (u1), only basic-subscribers will be decreased by 1
+                basic-subscribers: (decrement-tier-count (get basic-subscribers creator-stats) tier tier-basic),
+
+                premium-subscribers: (decrement-tier-count (get premium-subscribers creator-stats) tier tier-premium), 
+                vip-subscribers: (decrement-tier-count (get vip-subscribers creator-stats) tier tier-vip)
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+

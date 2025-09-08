@@ -160,6 +160,53 @@
     (var-get platform-fees-earned) ;; it goes into the apps piggy bank to see how much it has earned
 )
 
+;;========================================
+;; NEW SUBSCRIPTION READ-ONLY FUNCTIONS
+;;=========================================
+
+;; get the total subscriptions on platform
+(define-read-only (get-total-active-subscriptions)
+    (var-get total-active-subscriptions)
+)
+
+;; get total subscription revenue that's been earned by platform
+(define-read-only (get-total-subscription-revenue)
+    (var-get total-subscription-revenue)
+)
+
+;; get the user's subscription details
+;; we have to call the storage contract to retrieve the subscription details 
+(define-read-only (get-user-subscription (user principal))
+    (contract-call? .storage get-user-subscription user)
+)
+
+;; @des: check if "subscriber" currently has a valid (non-expired) subscription to the "specified creator"
+;; @params:
+;; - suscriber => principal
+;; - creator   => principal
+(define-read-only (has-active-subscription (subscriber principal) (creator principal))
+    (match (contract-call? .storage get-user-subscription subscriber)
+        subscription-data 
+            ;; Check if subscription exists, it is for this creator, and has not expired yet
+            (and 
+                (is-eq (get subscribed-to subscription-data) creator) ;; Check if they're subscribed to the RIGHT creator
+                (is-subscription-active (get expiry-block subscription-data)) ;; Check if subscription has not expired yet
+            )
+        false ;; the none branch returns false when no subscription is found
+    )
+)
+
+;; Get all subscription tier prices and duration in one call
+(define-read-only (get-tier-prices)
+    {
+        basic: BASIC-SUBSCRIPTION-PRICE,
+        premium: PREMIUM-SUBSCRIPTION-PRICE,
+        vip: VIP-SUBSCRIPTION-PRICE,
+        duration: SUBSCRIPTION-DURATION
+    }
+)
+
+
 ;; this shows us where the app stores all our fashion stuff
 (define-read-only (get-storage-contract) 
     (var-get storage-contract)
@@ -205,6 +252,25 @@
 ) ;; it will ask our Storage.clar for info about a tip like how much was sent or the message
 ;; for a specific post and tipper by wallet address
 
+;;==================================
+;; NEW READ-ONLY FUNCTIONS 
+;;=====================================
+
+;; This will get our follow records from storage
+(define-read-only (get-follow-record (follower principal) (following principal))
+    (contract-call? .storage get-follow-record follower following)
+)
+
+;; Let's retrieves the owner (principal) of a username from storage
+(define-read-only (get-username-owner (username (string-ascii 32)))
+    (contract-call? .storage get-username-owner username)
+)
+
+;; Get the creator's subscription statistics
+(define-read-only (get-creator-subscription-stats (creator principal))
+    (contract-call? .storage get-creator-subscription-stats creator)
+)
+
 ;; ==========================
 ;; This is what the flow looks like => user calls main, main queries storage, and storage returns the result for the user
 ;; ============================
@@ -230,6 +296,37 @@
 (define-private (calculate-platform-fee (amount uint))
     (/ (* amount PLATFORM-TIP-PERCENTAGE) u100)
 ) ;; (amout x 5) divide by 100 = 5%
+
+;;===============================================
+;; NEW SUBSCRIPTION HELPER FUNCTIONS
+;;===============================================
+
+;; This function checks that tier level entered is between 1 and 3 for tier levels
+(define-private (is-valid-tier (tier uint))
+    (and (>= tier TIER-BASIC) (<= tier TIER-VIP))
+)
+
+;; @desc: This helper function tells us how much each subscription tier costs
+;; we give it a tier number (1, 2, or 3) and it gives back the price
+;; the function uses nested if statements to select the right price for each tier level
+;; @param: tier - which is the subscription level the user wants (1=Basic, 2=Premium, 3=VIP)
+(define-private (get-tier-price (tier uint))
+    (if (is-eq tier TIER-BASIC)
+        (ok BASIC-SUBSCRIPTION-PRICE)   ;; 5 STX for basic tier
+        (if (is-eq tier TIER-PREMIUM) 
+            (ok PREMIUM-SUBSCRIPTION-PRICE)   ;; 10 STX for premium tier
+            (if (is-eq tier TIER-VIP)
+                (ok VIP-SUBSCRIPTION-PRICE)   ;; 20 STX for VIP tier 
+                ERR-INVALID-TIER ;; if the tier is not valid then we get this error
+            )
+        )
+    )
+)
+
+;; Check if subscription is currently active (not expired)
+(define-private (is-subscription-active (expiry-block uint))
+    (> expiry-block stacks-block-height)
+)
 
 ;; ====================================================================================================
 ;; PUBLIC FUNCTIONS 
@@ -522,4 +619,128 @@
     )
 )
 
+;;=====================================
+;; NEW SUBSCRIPTION PUBLIC FUNCTIONS
+;;=====================================
+
+;; Susbscribe to creator
+;; @desc
+;; - This function lets fans subscribe to their favorite creators for content access
+;; - Subscribers pay monthly fees and get premium benefits
+;; - Platform takes 5% fee, creator gets 95% of subscription revenue
+;; @params
+;; - creator: The creator's wallet address to subscribe to
+;; - tier: Subscription tier (1=Basic, 2=Premium, 3=VIP)
+(define-public (subscribe-to-creator (creator principal) (tier uint))
+    (let
+        (
+            ;; Get the subscription price for selected tier
+            (subscription-price (unwrap! (get-tier-price tier) ERR-INVALID-TIER))
+            
+            ;; Calculate the platform fee (5% of subscription)
+            (platform-fee (/ (* subscription-price u5) u100))
+            
+            ;; Calculate creator's share (95% of subscription)
+            (creator-amount (- subscription-price platform-fee))
+            
+            ;; Calculate when subscription expires (current block + 30 days)
+            (expiry-block (+ stacks-block-height SUBSCRIPTION-DURATION))
+        )
+        
+        ;; Make sure subscriber has a profile (creator or public user)
+        (asserts! (has-profile tx-sender) ERR-PROFILE-NOT-FOUND)
+        
+        ;; Make that the sure creator exists and has a creator profile
+        (asserts! (is-some (contract-call? .storage get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
+        
+        ;; Prevent users from subscribing to themselves
+        (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
+        
+        ;; Check the user does not already have active subscription to this creator
+        (asserts! (not (has-active-subscription tx-sender creator)) ERR-SUBSCRIPTION-ACTIVE)
+        
+        ;; Transfer 95% of subscription fee to creator
+        (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
+        
+        ;; Transfer 5% platform fee to contract
+        (unwrap! (stx-transfer? platform-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+        
+        ;; Call the storage contract save subscription details 
+        (unwrap! (contract-call? .storage create-subscription
+                    tx-sender           ;; Who is subscribing
+                    creator             ;; Who they're subscribing to
+                    tier                ;; What tier they selected
+                    subscription-price  ;; How much they paid
+                    expiry-block        ;; When subscription expires
+                    TIER-BASIC
+                    TIER-PREMIUM
+                    TIER-VIP
+                ) ERR-STORAGE-FAILED
+        )
+        
+        ;; Increment total active subscriptions count
+        (var-set total-active-subscriptions (+ (var-get total-active-subscriptions) u1))
+        
+        ;; Add subscription revenue to platform earnings
+        (var-set total-subscription-revenue (+ (var-get total-subscription-revenue) subscription-price))
+        
+        ;; Record successful subscription creation for tracking
+        (print {
+            event: "subscription-created",
+            subscriber: tx-sender,
+            creator: creator,
+            tier: tier,
+            price: subscription-price,
+            creator-received: creator-amount,
+            platform-fee: platform-fee,
+            expiry-block: expiry-block
+        })
+        
+        (ok true)
+    )
+)
+
+;; Cancel subscription
+;; @desc
+;; - This function lets users cancel their subscription to a creator
+;; - there is absolutely no refund provided, but the subscription remains active until expiry date
+;; @params: creator
+(define-public (cancel-subscription (creator principal))
+    (let
+        (
+            ;; Get current subscription details
+            (subscription-data (unwrap! (contract-call? .storage get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
+        )
+        
+        ;; Make sure subscription is for the specified creator
+        (asserts! (is-eq (get subscribed-to subscription-data) creator) ERR-NO-SUBSCRIPTION)
+        
+        ;; Ensure subscription is still active
+        (asserts! (is-subscription-active (get expiry-block subscription-data)) ERR-SUBSCRIPTION-EXPIRED)
+        
+        ;; Remove the subscription from storage
+        (unwrap! (contract-call? .storage cancel-subscription 
+                    tx-sender 
+                    TIER-BASIC 
+                    TIER-PREMIUM 
+                    TIER-VIP
+                 ) 
+                ERR-STORAGE-FAILED
+        )
+        
+        ;; Decrease the total active subscriptions count by 1 to reflect the cancellation,
+        ;; so to enable our platform's subscription statistics stay accurate
+        (var-set total-active-subscriptions (- (var-get total-active-subscriptions) u1))
+        
+        ;; Record subscription cancellation for tracking
+        (print {
+            event: "subscription-cancelled",
+            subscriber: tx-sender,
+            creator: creator,
+            cancelled-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
 
