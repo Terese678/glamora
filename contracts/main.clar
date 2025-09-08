@@ -618,4 +618,128 @@
     )
 )
 
+;;=====================================
+;; NEW SUBSCRIPTION PUBLIC FUNCTIONS
+;;=====================================
+
+;; Susbscribe to creator
+;; @desc
+;; - This function lets fans subscribe to their favorite creators for content access
+;; - Subscribers pay monthly fees and get premium benefits
+;; - Platform takes 5% fee, creator gets 95% of subscription revenue
+;; @params
+;; - creator: The creator's wallet address to subscribe to
+;; - tier: Subscription tier (1=Basic, 2=Premium, 3=VIP)
+(define-public (subscribe-to-creator (creator principal) (tier uint))
+    (let
+        (
+            ;; Get the subscription price for selected tier
+            (subscription-price (unwrap! (get-tier-price tier) ERR-INVALID-TIER))
+            
+            ;; Calculate the platform fee (5% of subscription)
+            (platform-fee (/ (* subscription-price u5) u100))
+            
+            ;; Calculate creator's share (95% of subscription)
+            (creator-amount (- subscription-price platform-fee))
+            
+            ;; Calculate when subscription expires (current block + 30 days)
+            (expiry-block (+ stacks-block-height SUBSCRIPTION-DURATION))
+        )
+        
+        ;; Make sure subscriber has a profile (creator or public user)
+        (asserts! (has-profile tx-sender) ERR-PROFILE-NOT-FOUND)
+        
+        ;; Make that the sure creator exists and has a creator profile
+        (asserts! (is-some (contract-call? .storage get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
+        
+        ;; Prevent users from subscribing to themselves
+        (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
+        
+        ;; Check the user does not already have active subscription to this creator
+        (asserts! (not (has-active-subscription tx-sender creator)) ERR-SUBSCRIPTION-ACTIVE)
+        
+        ;; Transfer 95% of subscription fee to creator
+        (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
+        
+        ;; Transfer 5% platform fee to contract
+        (unwrap! (stx-transfer? platform-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+        
+        ;; Call the storage contract save subscription details 
+        (unwrap! (contract-call? .storage create-subscription
+                    tx-sender           ;; Who is subscribing
+                    creator             ;; Who they're subscribing to
+                    tier                ;; What tier they selected
+                    subscription-price  ;; How much they paid
+                    expiry-block        ;; When subscription expires
+                    TIER-BASIC
+                    TIER-PREMIUM
+                    TIER-VIP
+                ) ERR-STORAGE-FAILED
+        )
+        
+        ;; Increment total active subscriptions count
+        (var-set total-active-subscriptions (+ (var-get total-active-subscriptions) u1))
+        
+        ;; Add subscription revenue to platform earnings
+        (var-set total-subscription-revenue (+ (var-get total-subscription-revenue) subscription-price))
+        
+        ;; Record successful subscription creation for tracking
+        (print {
+            event: "subscription-created",
+            subscriber: tx-sender,
+            creator: creator,
+            tier: tier,
+            price: subscription-price,
+            creator-received: creator-amount,
+            platform-fee: platform-fee,
+            expiry-block: expiry-block
+        })
+        
+        (ok true)
+    )
+)
+
+;; Cancel subscription
+;; @desc
+;; - This function lets users cancel their subscription to a creator
+;; - there is absolutely no refund provided, but the subscription remains active until expiry date
+;; @params: creator
+(define-public (cancel-subscription (creator principal))
+    (let
+        (
+            ;; Get current subscription details
+            (subscription-data (unwrap! (contract-call? .storage get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
+        )
+        
+        ;; Make sure subscription is for the specified creator
+        (asserts! (is-eq (get subscribed-to subscription-data) creator) ERR-NO-SUBSCRIPTION)
+        
+        ;; Ensure subscription is still active
+        (asserts! (is-subscription-active (get expiry-block subscription-data)) ERR-SUBSCRIPTION-EXPIRED)
+        
+        ;; Remove the subscription from storage
+        (unwrap! (contract-call? .storage cancel-subscription 
+                    tx-sender 
+                    TIER-BASIC 
+                    TIER-PREMIUM 
+                    TIER-VIP
+                 ) 
+                ERR-STORAGE-FAILED
+        )
+        
+        ;; Decrease the total active subscriptions count by 1 to reflect the cancellation,
+        ;; so to enable our platform's subscription statistics stay accurate
+        (var-set total-active-subscriptions (- (var-get total-active-subscriptions) u1))
+        
+        ;; Record subscription cancellation for tracking
+        (print {
+            event: "subscription-cancelled",
+            subscriber: tx-sender,
+            creator: creator,
+            cancelled-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
 
