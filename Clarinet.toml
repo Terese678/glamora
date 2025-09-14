@@ -6,8 +6,18 @@ telemetry = true
 cache_dir = '.\.cache'
 requirements = []
 
+[contracts.glamora-nft]
+path = 'contracts/glamora-nft.clar'
+clarity_version = 3
+epoch = 3.0
+
 [contracts.main]
 path = 'contracts/main.clar'
+clarity_version = 3
+epoch = 3.0
+
+[contracts.sip-009]
+path = 'contracts/sip-009.clar'
 clarity_version = 3
 epoch = 3.0
 
@@ -15,7 +25,6 @@ epoch = 3.0
 path = 'contracts/storage.clar'
 clarity_version = 3
 epoch = 3.0
-
 [repl.analysis]
 passes = ['check_checker']
 

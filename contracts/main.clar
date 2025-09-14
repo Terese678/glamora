@@ -270,6 +270,15 @@
     (contract-call? .storage get-creator-subscription-stats creator)
 )
 
+;;=======================================
+;; GET NFT-METADTA READ-ONLY 
+;;=======================================
+;; @desc: This function bridges the main contract to the storage contract to fetch NFT metadata
+;; We call our storage contract to fetch the NFT metadata providing it a token id
+(define-read-only (get-nft-metadata (token-id uint))
+    (contract-call? .storage get-nft-metadata token-id)
+)
+
 ;; ==========================
 ;; This is what the flow looks like => user calls main, main queries storage, and storage returns the result for the user
 ;; ============================
@@ -423,12 +432,15 @@
 ;; (e.g., posting, tipping) so no full off-chain storage system is required for now
 ;; Later, glamora will use IPFS to store content and point content-hash to those files on the decentralized storage
 
+;; ENHANCEMENT:
+;; Added IPFS-HASH parameter so users can input their ipfs-hash if they have one
+
 ;; @param
 ;; - title (string-utf8 64)
 ;; - description (string-utf8 256)
 ;; - content-hash (buff 32)
 ;; - category uint
-(define-public (publish-content (title (string-utf8 64)) (description (string-utf8 256)) (content-hash (buff 32)) (category uint))
+(define-public (publish-content (title (string-utf8 64)) (description (string-utf8 256)) (content-hash (buff 32)) (ipfs-hash (optional (string-ascii 64))) (category uint))
     (let
         (
             ;; we need to get the ID number that the next post will get
@@ -454,6 +466,7 @@
                     title
                     description
                     content-hash
+                    ipfs-hash ;; added for enhancement
                     category
                 ) 
                 ERR-TRANSFER-FAILED
@@ -472,7 +485,8 @@
             content-id: content-id,           ;; The post's unique ID number
             creator: tx-sender,               ;; Who created it
             category: category,               ;; What type of content is it
-            title: title     
+            title: title,
+            ipfs: ipfs-hash     
         })
 
         (ok content-id) ;; return the content ID to the user
