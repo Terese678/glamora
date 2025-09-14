@@ -99,6 +99,7 @@
     title: (string-utf8 64),
     description: (string-utf8 256),
     content-hash: (buff 32),
+    ipfs-hash: (optional (string-ascii 64)), ;; ipfs added
     category: uint,
     creation-date: uint,
     tip-count: uint,
@@ -118,6 +119,19 @@
 (define-map user-follows {follower: principal, following: principal} {
     follow-date: uint,
     active: bool
+})
+
+;;=======================================
+;; NEW NFT-METADATA STORAGE MAP 
+;;=======================================
+;; @desc: This map stores all the detailed information about each NFT that was minted
+(define-map nft-metadata uint {
+    name: (string-utf8 64),
+    description: (string-utf8 256),
+    image-ipfs-hash: (string-ascii 64),
+    animation-ipfs-hash: (optional (string-ascii 64)),
+    external-url: (optional (string-ascii 128)),
+    attributes-ipfs-hash: (optional (string-ascii 64))
 })
 
 ;;================================
@@ -248,6 +262,16 @@
         ;; Two possible outcomes to handle here. If something is found or nothing at all
         (match follow-data data (get active data) false) ;; the none branch return false if we have no data
     )
+)
+
+;;=======================================
+;; NEW GET NFT-METADATA READ-ONLY FUNCTION
+;;=======================================
+;; @desc: This function will fetch all the detailed information about a specific NFT
+;; by giving it an NFT ID number, it looks in our nft-metadata map using that ID as the key
+;; and return the information if found or nothing if NFT does not exist
+(define-read-only (get-nft-metadata (token-id uint))
+    (map-get? nft-metadata token-id)
 )
 
 ;;===================================================
@@ -391,14 +415,16 @@
 ;; - creator principal
 ;; - (title (string-utf8 64))              
 ;; - (description (string-utf8 256))       
-;; - (content-hash (buff 32))              
+;; - (content-hash (buff 32))   
+;; - (ipfs-hash (optional (string-ascii 64))) added the ipfs parameter ensure decentralized sotrage           
 ;; - (category uint)
 (define-public (create-content 
     (content-id uint) 
     (creator principal) 
     (title (string-utf8 64)) 
     (description (string-utf8 256)) 
-    (content-hash (buff 32)) 
+    (content-hash (buff 32))
+    (ipfs-hash (optional (string-ascii 64)))  
     (category uint)) 
     (let
         (
@@ -417,7 +443,8 @@
             creator: creator,
             title: title,                     
             description: description,         
-            content-hash: content-hash,       
+            content-hash: content-hash, 
+            ipfs-hash: ipfs-hash,      
             category: category,               
             creation-date: stacks-block-height, 
             tip-count: u0,                    
