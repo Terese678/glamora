@@ -17,8 +17,8 @@
 ;; ERROR CODES
 ;;========================================
 
-(define-constant ERR-NOT-NFT-OWNER (err u202)) ;; The caller is not the owner of this NFT
-(define-constant ERR-TRANSFER-FAILED (err u207)) ;; When STX or NFT transfer operation fails
+(define-constant ERR-NOT-NFT-OWNER (err u200)) ;; The caller is not the owner of this NFT
+(define-constant ERR-TRANSFER-FAILED (err u201)) ;; When STX or NFT transfer operation fails
 
 ;;========================================
 ;; PLATFORM STATE VARIABLES
