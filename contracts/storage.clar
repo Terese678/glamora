@@ -134,6 +134,24 @@
     attributes-ipfs-hash: (optional (string-ascii 64))
 })
 
+;; FASHION COLLECTIONS MAP
+;; This map stores all the information about fashion collection on our platform
+;; every time someone creates a new fashion collection, we store all its information here
+;; this enables us to keep track of who created what and how many NFTs are in each collection
+
+;; Fashion Collections Map
+;; They key is collection ID (uint) a unique number assigned to each collection
+;; the value is a record containing all the collection information
+(define-map fashion-collections uint {
+    collection-name: (string-utf8 32),
+    creator: principal,
+    description: (string-utf8 256),
+    max-editions: uint,
+    current-editions: uint,
+    creation-date: uint,
+    active: bool
+})
+
 ;;================================
 ;;; Private helper functions 
 ;;=====================================
@@ -272,6 +290,12 @@
 ;; and return the information if found or nothing if NFT does not exist
 (define-read-only (get-nft-metadata (token-id uint))
     (map-get? nft-metadata token-id)
+)
+
+;; GET COLLECTION DATA
+;; @desc: This function will look up and return all the information about a specific fashion collection
+(define-read-only (get-collection-data (collection-id uint)) 
+    (map-get? fashion-collections collection-id)
 )
 
 ;;===================================================
@@ -739,4 +763,37 @@
     )
 )
 
+;; STORE COLLECTION DATA
+;; @desc: This function saves new fashion collection information and only authorized users 
+;; like the main contract can call this function to keep our data safe
+;; @param 
+;; - collection-id: The unique number that this collection will be identified with
+;; - collection-name: What the collection is called 
+;; - creator: The wallet address of the person who created this collection
+;; - description: A detailed explanation of what this collection is about
+;; - max-editions: The maximum number of NFTs that can ever be created in this collection
+(define-public (store-collection-data 
+    (collection-id uint) 
+    (collection-name (string-utf8 32)) 
+    (creator principal) 
+    (description (string-utf8 256)) 
+    (max-editions uint))
+    (begin
+        ;; Make sure only authorized users can store collection data
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; Store all the collection information in our fashion-collections map
+        (map-set fashion-collections collection-id {
+            collection-name: collection-name,
+            creator: creator,
+            description: description,
+            max-editions: max-editions,
+            current-editions: u0, ;; starting with 0 NFTs minted means no NFTs has been created yet
+            creation-date: stacks-block-height,
+            active: true ;; mark the collection as active and available
+        })
+
+        (ok true)
+    )
+)
 

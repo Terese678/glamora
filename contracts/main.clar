@@ -42,7 +42,6 @@
 (define-constant ERR-FOLLOW-FAILED (err u11))         ;; When follow operation fails
 (define-constant ERR-STORAGE-FAILED (err u12))        ;; Storage contract failed to process the request
 (define-constant ERR-UNAUTHORIZED (err u13))          ;; caller is not authorized to call a function
-
 ;;===============================================
 ;; NEW SUBSCRIPTION ERROR CODES ADDED
 ;;===============================================
@@ -224,6 +223,8 @@
     }
 )
 
+;; CROSS-CONTRACT FUNCIONS
+
 ;; Let's us look up a creator profile. It will fetches data from storage, this ensures modularity
 (define-read-only (get-creator-profile (user principal)) 
     (contract-call? .storage get-creator-profile user)
@@ -279,6 +280,41 @@
     (contract-call? .storage get-nft-metadata token-id)
 )
 
+;; Let's look up the details about a fashion collection
+(define-read-only (get-collections-details (collection-id uint))
+    (contract-call? .storage get-collection-data collection-id)
+) ;; this function will ask storage.clar for info about a collection like its name, 
+;; creator, description using its ID number like #1, #2, #3
+
+;; GET NFT MARKETPLACE STATISTICS
+;; @desc: This function shows you everything about the NFT marketplace on Glamora in one simple call
+(define-read-only (get-nft-marketplace-stats)
+    {
+        ;; this will check how many individual fashion NFTs exist on the platform
+        total-nfts: (contract-call? .glamora-nft get-total-nfts-minted),
+        next-collection-id: (contract-call? .glamora-nft get-next-collection-id),
+
+        ;; AUTHORIZATION
+        ;; The wallet address allowed to create new fashion collections
+        authorized-caller: (contract-call? .glamora-nft get-authorized-caller),
+        
+        ;; The wallet address of the person who owns and controls the NFT system
+        admin: (contract-call? .glamora-nft get-admin),
+
+        ;; COLLECTION LIMITS
+        ;; The smallest number of NFTs one can put in one collection
+        ;; every fashion collection needs at least 1 item so we don't have empty collections
+        min-collection-size: u1,
+
+        ;; The biggest number of NFTs allowed in one collection
+        ;; max 10,000 items per collection to keep it manageable
+        max-collection-size: u10000,
+
+        ;; The amount it costs to create a new fashion collection (in microSTX)
+        ;; 5,000,000 microSTX = 5 STX tokens (the platform's creation fee)
+        collection-creation-fee: u5000000
+    }
+)
 ;; ==========================
 ;; This is what the flow looks like => user calls main, main queries storage, and storage returns the result for the user
 ;; ============================
@@ -757,3 +793,42 @@
     )
 )
 
+;; CREATE NFT FASHION COLLECTION
+;; @desc: This function lets fashion creators start their own digital fashion collection on glamora
+;; firstly, you must be a registered creator on glamora - have a creator profile
+;; secondly, Pay a 5 STX fee to create the collection, like a business license fee
+;; third, give your collection a name, description, and set how many NFTs it can hold
+;; fourth, the system creates your collection and gives it a unique ID number
+;; @params:
+;; - collection-name: the name of your fashion collection
+;; - description: tell people what your collection is about 
+;; - max-editions: maximum number of NFTs this collection can have (minimum 1, maximum 10,000)
+(define-public (create-nft-collection 
+    (collection-name (string-utf8 32)) 
+    (description (string-utf8 256)) 
+    (max-editions uint)) 
+    (let
+        (
+            ;; Set the cost to create a new fashion collection
+            (collection-creation-fee u5000000) ;; 5 STX
+        )
+
+        ;; Make sure the person trying to create this collection is actually a registered creator
+        ;; we check our storage system to see if they have a creator profile
+        ;; only creators can make collections - regular users can only buy/tip/follow
+        (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+
+        ;; Collect the 5 STX creation fee from the creator
+        ;; the money goes from creator's wallet to the platform's contract wallet
+        (unwrap! (stx-transfer? collection-creation-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+
+        ;; Now that payment is done and creator is verified, we will create the collection
+        ;; by calling the glamora-nft contract which handles all the NFT collection logic
+        ;; it will confirm the collection details, assign an ID, and store everything
+        (unwrap! (contract-call? .glamora-nft create-fashion-collection collection-name description max-editions) 
+            ERR-STORAGE-FAILED)
+
+        ;; return success message
+        (ok true)
+    )
+)
