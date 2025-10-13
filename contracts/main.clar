@@ -42,6 +42,10 @@
 (define-constant ERR-FOLLOW-FAILED (err u11))         ;; When follow operation fails
 (define-constant ERR-STORAGE-FAILED (err u12))        ;; Storage contract failed to process the request
 (define-constant ERR-UNAUTHORIZED (err u13))          ;; caller is not authorized to call a function
+
+;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
+(define-constant CONTRACT-ADDRESS (as-contract tx-sender))
+
 ;;===============================================
 ;; NEW SUBSCRIPTION ERROR CODES ADDED
 ;;===============================================
@@ -571,7 +575,7 @@
         (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
         
         ;; Transfer 5% platform fee to the contract
-        (unwrap! (stx-transfer? platform-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+        (unwrap! (stx-transfer? platform-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
 
         ;; DATA RECORDING
         ;; Save tip details permanently in storage contract
@@ -712,7 +716,7 @@
         (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
         
         ;; Transfer 5% platform fee to contract
-        (unwrap! (stx-transfer? platform-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+        (unwrap! (stx-transfer? platform-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
         
         ;; Call the storage contract save subscription details 
         (unwrap! (contract-call? .storage create-subscription
@@ -820,7 +824,7 @@
 
         ;; Collect the 5 STX creation fee from the creator
         ;; the money goes from creator's wallet to the platform's contract wallet
-        (unwrap! (stx-transfer? collection-creation-fee tx-sender (as-contract tx-sender)) ERR-TRANSFER-FAILED)
+        (unwrap! (stx-transfer? collection-creation-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
 
         ;; Now that payment is done and creator is verified, we will create the collection
         ;; by calling the glamora-nft contract which handles all the NFT collection logic
@@ -832,3 +836,4 @@
         (ok true)
     )
 )
+
