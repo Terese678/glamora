@@ -110,7 +110,9 @@
     (is-eq caller (var-get authorized-caller)) 
 ) ;; it will return true if they match and false if they don't
 
-;; HELPER FUNCTIONS - read-only 
+;;=======================================
+;; HELPER FUNCTIONS - READ-ONLY
+;;=======================================
 
 ;; @desc: this function will enable external contract check who is authorized to call
 ;; Since no changes will be made just a check hence I used a read-only for the helper function
@@ -124,6 +126,46 @@
 (define-read-only (is-valid-collection-name (name (string-utf8 32)))
     ;; check that the collection name is not empty
     (> (len name) u0)
+)
+
+;; @desc: this checks how many NFTs are left to mint in a collection
+;; - and it returns the number of nfts still available to mint
+;; @param: collection-id - the collection we need to check
+
+;;=======================================
+;; ADMIN FUNCTIONS
+;;=======================================
+;; SET AUTHORIZED CALLER
+;; @desc: this function allows the admin to change who is authorized to create collections
+;; only the admin (person who deployed the contract) can do this
+;; @param: new-caller - the wallet address of the new person/contract to authorize
+(define-public (set-authorized-caller (new-caller principal))
+    (let
+        (
+            ;; let's save the current authorized caller before we change it
+            ;; this is just for the event log so we can see who had permission before
+            (old-caller (var-get authorized-caller))
+        )
+        (begin
+            ;; check only the admin can change who is authorized
+            ;; if you're not the admin, this will stop and return and error
+            (asserts! (is-eq tx-sender (var-get admin)) ERR-NOT-AUTHORIZED)
+
+            ;; update the new authorized caller
+            (var-set authorized-caller new-caller)
+
+            ;; record the change so everyone can see what happened
+            (print {
+                event: "authorized-caller-updated",
+                old-caller: old-caller,           ;; who had permissions before
+                new-caller: new-caller,           ;; who have permissions now
+                updated-by: tx-sender             ;; Who made this change (the admin)
+            })
+
+            ;; Success: return true
+            (ok true)
+        )
+    )
 )
 
 ;;=======================================
@@ -256,13 +298,81 @@
     )
 )
 
-
-
-
-
-
-
-
-
-
-
+;;=======================================
+;; MINT FASHION NFT
+;;=======================================
+;; @desc: Mint a new NFT in an existing fashion collection
+;; Only the collection creator can mint NFTs in their collection
+;; @params:
+;; - collection-id: Which collection this NFT belongs to
+;; - recipient: Who will receive this NFT
+;; - name: NFT name/title
+;; - description: NFT description
+;; - image-ipfs-hash: IPFS hash for the NFT image
+;; - animation-ipfs-hash: Optional IPFS hash for animation
+;; - external-url: Optional external link
+;; - attributes-ipfs-hash: Optional IPFS hash for attributes
+(define-public (mint-fashion-nft
+    (collection-id uint)
+    (recipient principal)
+    (name (string-utf8 64))
+    (description (string-utf8 256))
+    (image-ipfs-hash (string-ascii 64))
+    (animation-ipfs-hash (optional (string-ascii 64)))
+    (external-url (optional (string-ascii 128)))
+    (attributes-ipfs-hash (optional (string-ascii 64))))
+    (let
+        (
+            ;; get collection data to verify it exists and check limits
+            (collection-data (unwrap! (contract-call? .storage get-collection-data collection-id) ERR-INVALID-INPUT))
+            
+            ;; get next NFT ID to assign to this new NFT
+            (token-id (+ (var-get total-nfts-minted) u1))
+            
+            ;; check current and max editions
+            (current-editions (get current-editions collection-data))
+            (max-editions (get max-editions collection-data))
+            (creator (get creator collection-data))
+        )
+        
+        ;; only collection creator can mint NFTs
+        (asserts! (is-eq tx-sender creator) ERR-NOT-AUTHORIZED)
+        
+        ;; collection must be active
+        (asserts! (get active collection-data) ERR-INVALID-INPUT)
+        
+        ;; verify the current editions is less than max editions (e.g. 5 minted < 100 max = can mint more)
+        (asserts! (< current-editions max-editions) ERR-INVALID-INPUT)
+        
+        ;; mint the NFT to recipient
+        (unwrap! (nft-mint? glamora-nft token-id recipient) ERR-TRANSFER-FAILED)
+        
+        ;; store NFT metadata
+        (unwrap! (contract-call? .storage store-nft-metadata
+            token-id
+            name
+            description
+            image-ipfs-hash
+            animation-ipfs-hash
+            external-url
+            attributes-ipfs-hash) ERR-STORAGE-FAILED)
+        
+        ;; update collection edition count
+        (unwrap! (contract-call? .storage update-collection-editions collection-id) ERR-STORAGE-FAILED)
+        
+        ;; increment total NFTs minted on platform
+        (var-set total-nfts-minted token-id)
+        
+        ;; log the mint event
+        (print {
+            event: "nft-minted",
+            token-id: token-id,
+            collection-id: collection-id,
+            recipient: recipient,
+            minted-by: tx-sender
+        })
+        
+        ;; return the new NFT ID
+        (ok token-id)
+    )
+)
