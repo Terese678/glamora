@@ -797,3 +797,64 @@
     )
 )
 
+;; STORE NFT METADATA
+;; @desc: this will save all the information about a newly minted NFT
+;; only the authorized contracts can call this function
+;; @params:
+;; - token-id: Unique NFT identifier
+;; - name: NFT title
+;; - description: What this NFT represents
+;; - image-ipfs-hash: IPFS link to the NFT image
+;; - animation-ipfs-hash: Optional IPFS link to animation/video
+;; - external-url: Optional external website link
+;; - attributes-ipfs-hash: Optional IPFS link to attributes/traits
+(define-public (store-nft-metadata 
+    (token-id uint) 
+    (name (string-utf8 64)) 
+    (description (string-utf8 256)) 
+    (image-ipfs-hash (string-ascii 64)) 
+    (animation-ipfs-hash (optional (string-ascii 64))) 
+    (external-url (optional (string-ascii 128))) 
+    (attributes-ipfs-hash (optional (string-ascii 64))))
+    (begin
+        ;; only authorized contracts can store NFT data
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; Save NFT metadata
+        (map-set nft-metadata token-id {
+            name: name,
+            description: description,
+            image-ipfs-hash: image-ipfs-hash,
+            animation-ipfs-hash: animation-ipfs-hash,
+            external-url: external-url,
+            attributes-ipfs-hash: attributes-ipfs-hash
+        })
+
+        (ok true)
+    )
+)
+
+;; UPDATE COLLECTION EDITIONS COUNT
+;; @desc: Increment the number of minted NFTs in a collection
+;; @param:
+;; - collection-id: Which collection to update
+(define-public (update-collection-editions (collection-id uint))
+    (let
+        (
+            ;; get collection data
+            (collection-data (unwrap! (map-get? fashion-collections collection-id) ERR-NOT-AUTHORIZED))
+        )
+
+        ;; ensure only authorized contracts can update
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; now, increment edition count by 1
+        (map-set fashion-collections collection-id
+            (merge collection-data {
+                current-editions: (+ (get current-editions collection-data) u1)
+            })
+        )
+
+        (ok true)
+    )
+)
