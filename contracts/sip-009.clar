@@ -1,6 +1,7 @@
+;;=======================================
 ;; title: sip-009
 
-;; summary: This is SIP-009 NFT Standard Trait Definition for Glamora Fashion Platform
+;; summary: This is the SIP-009 NFT Standard Trait Definition for Glamora Fashion Platform
 
 ;; description: This contract defines the standard SIP-009 NFT trait
 ;; interface to work with traits properly with NFT market places, crypto wallets and

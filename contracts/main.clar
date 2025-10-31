@@ -9,13 +9,13 @@
 ;; 
 ;; For Fashion Creators: They join by creating a creator profile, then showcase their fashion expertise 
 ;; by posting photos and videos across 5 categories - Fashion Shows, Lookbooks, Tutorials, Behind-the-Scenes content,
-;; and Reviews. You can share your amazing outfits, styling tips, design processes, or fashion insights 
-;; You can also build your follower community and earn direct STX cryptocurrency tips from fans who love your work 
+;; and Reviews. They can share your amazing outfits, styling tips, design processes, or fashion insights.
+;; They can also build their follower community and earn direct sBTC tips from fans who their work 
 ;; (you keep 95%, platform takes only 5%)
 ;;
 ;; For Fashion Enthusiasts: They can sign up as a public user to dive into the fashion world without creating content,
 ;; they can follow their favorite creators, discover emerging fashion trends, explore amazing outfits 
-;; from shoes to accessories, and directly support creators they love by sending STX tips with personal messages
+;; from shoes to accessories, and directly support creators they love by sending sBTC tips with personal messages
 ;; staying connected with the latest fashion styles and designs
 
 ;; Version 3.0
@@ -34,7 +34,7 @@
 (define-constant ERR-PROFILE-EXISTS (err u3))         ;; this User has already created a profile
 (define-constant ERR-PROFILE-NOT-FOUND (err u4))      ;; user's profile can't be found
 (define-constant ERR-CONTENT-NOT-FOUND (err u5))      ;; content post can't be found
-(define-constant ERR-TRANSFER-FAILED (err u6))        ;; STX payment didn't work
+(define-constant ERR-TRANSFER-FAILED (err u6))        ;; sBTC payment didn't work
 (define-constant ERR-ALREADY-FOLLOWING (err u7))      ;; Already following this person
 (define-constant ERR-CANNOT-FOLLOW-SELF (err u8))     ;; Can't follow yourself, it is not allowed
 (define-constant ERR-NOT-FOLLOWING (err u9))          ;; error if trying to unfollow someone you're not following
@@ -46,10 +46,6 @@
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
 
-;;===============================================
-;; NEW SUBSCRIPTION ERROR CODES ADDED
-;;===============================================
-
 (define-constant ERR-INVALID-TIER (err u14))           ;; This when a user selects an invalid tier subscription 
 (define-constant ERR-SUBSCRIPTION-ACTIVE (err u15))    ;; When user already has active subscription
 (define-constant ERR-NO-SUBSCRIPTION (err u16))        ;; If the user has no active subscription  
@@ -57,27 +53,37 @@
 
 ;; Platform fees
 (define-constant PLATFORM-TIP-PERCENTAGE u5)          ;; platform keeps 5% of tips received from creators
-(define-constant MIN-TIP-AMOUNT u100000)              ;; Minimum tip amount 1 stx 
+(define-constant MARKETPLACE-FEE-PERCENTAGE u5)       ;; Marketplace fee percentage (5% platform fee on NFT sales)
 
-;;============================================
-;; NEW SUBSCRIPTION CONSTANTS 
-;;============================================
+;; sBTC token contract, local mock for testing
+(define-constant SBTC-CONTRACT .sbtc-token) 
 
-;; Subscription tiers and pricing (in microSTX)
-(define-constant BASIC-SUBSCRIPTION-PRICE u5000000)    ;; 5 STX per month for basic tier
-(define-constant PREMIUM-SUBSCRIPTION-PRICE u10000000) ;; 10 STX per month for the premium tier
-(define-constant VIP-SUBSCRIPTION-PRICE u20000000)     ;; 20 STX per month for the VIP tier
+;;===============================================
+;; PAYMENT AMOUNTS (in micro-sBTC, 1 sBTC = 100,000,000 micro-sBTC)
+;;===============================================
 
-;; Subscription duration in blocks (approximately 30 days)
-;; So, 30 days will give us 144 blocks/day 30 days = 4,320 blocks total
-(define-constant SUBSCRIPTION-DURATION u4320)          ;; 30 days worth of blocks 
+(define-constant MIN-TIP-AMOUNT u100000)              ;; 0.001 sBTC 
+
+(define-constant BASIC-SUBSCRIPTION-PRICE u2000000)    ;; 0.02 sBTC per month
+(define-constant PREMIUM-SUBSCRIPTION-PRICE u5000000) ;; 0.05 sBTC per month
+(define-constant VIP-SUBSCRIPTION-PRICE u6000000)     ;; 0.06 sBTC per month
+
+;; NFT Collection Creation
+(define-constant COLLECTION-CREATION-FEE u5000000)     ;; 0.05 sBTC to create collection (pay one time)
+
+;; NFT Marketplace
+(define-constant MIN-LISTING-PRICE u1000000)           ;; 0.01 sBTC minimum listing price
+
+(define-constant SUBSCRIPTION-DURATION u4320)           ;; Subscription duration in blocks (approximately 30 days)
+                                                        ;; Stacks, 144 blocks/day 144 multiply by 30 = 4,320 blocks
 
 ;; Subscription tiers
 (define-constant TIER-BASIC u1)                        ;; Basic subscription tier
 (define-constant TIER-PREMIUM u2)                      ;; Premium subscription tier  
 (define-constant TIER-VIP u3)                          ;; VIP subscription tier
 
-;; CONTENT CATEGORIES - these are types of fashion content available on the platform 
+;; Content categories 
+;; these are types of fashion content available on the platform 
 (define-constant CATEGORY-FASHION-SHOW u1)            ;; category 1 for runway parades with models in dazzling outfits
 (define-constant CATEGORY-LOOKBOOK u2)                ;; category 2 for awesome photo collections, photo album with nice style snapshots
 (define-constant CATEGORY-TUTORIAL u3)                ;; category 3 educational fashion videos how fashion is made, how to make dress 
@@ -88,7 +94,6 @@
 ;; Data Variables 
 ;;=================================
 
-;; DATA VARIABLES
 ;; This counts how many people joined our fashion platform. The number goes up by one anytime someone makes a profile
 ;; tracking user growth
 (define-data-var total-users uint u0)
@@ -103,17 +108,13 @@
 (define-data-var next-content-id uint u1)
 
 ;; This counts how many times people sent money tips to creators
-;; This scoreboard starts at 0 and goes up by 1 every time someone sends a tip (like giving a small gift of STX) 
+;; This scoreboard starts at 0 and goes up by 1 every time someone sends a tip (like giving a small gift of sBTC) 
 ;; If 20 tips are sent, it is u20
 (define-data-var total-tips-sent uint u0)
 
 ;; This counts the money the app earns to keep running
-;; It tracks how much STX (in microstacks) the app earns from fees
+;; It tracks how much sBTC the app earns from fees
 (define-data-var platform-fees-earned uint u0)
-
-;;======================================
-;; NEW SUBSCRIPTION DATA VARIABLES
-;;=======================================
 
 ;; This will track total active subscriptions across the platform
 (define-data-var total-active-subscriptions uint u0)
@@ -121,7 +122,16 @@
 ;; This will keep track of total subscription revenue earned by platform
 (define-data-var total-subscription-revenue uint u0)
 
-;; the storage-contract links to STORAGE.clar for secure data storage which is like a big warehouse 
+;; Track total NFT listings on the marketplace
+(define-data-var total-nft-listings uint u0)
+
+;; Track total NFT sales completed
+(define-data-var total-nft-sales uint u0)
+
+;; Track total marketplace revenue from NFT sales
+(define-data-var marketplace-revenue uint u0)
+
+;; The storage-contract links to STORAGE.clar for secure data storage which is like a big warehouse 
 ;; where all the app data "profiles, posts, tips" is kept safe
 (define-data-var storage-contract principal .storage)
 
@@ -129,12 +139,119 @@
 ;; Read-only Functions 
 ;;============================
 
-;; get total users
+;;===============================================
+;; PLATFORM STATISTICS
+;;===============================================
+
+;; Get total users
 (define-read-only (get-total-users) 
     (var-get total-users) ;; shows the number of users on the platform
 )
 
-;; get total followers
+;; Get total content
+(define-read-only (get-total-content)
+    (var-get total-content) 
+) ;; get total content tracks fashion pictures or videos people shared in the app, if there are 5 posts, it show the 5 posts
+
+;; Get next content ID
+(define-read-only (get-next-content-id)
+    (var-get next-content-id) ;; this will grab the number that the next post will get
+)
+
+;; Get total tips sent
+(define-read-only (get-total-tips)
+    (var-get total-tips-sent) ;; it grabs the total tips creators receieve
+)
+
+;; Get platform fees earned
+(define-read-only (get-platform-fees-earned) 
+    (var-get platform-fees-earned) ;; it goes into the apps bank to see how much it has earned
+)
+
+;;===============================================
+;; NFT MARKETPLACE 
+;;===============================================
+
+;; Get total NFT listings
+(define-read-only (get-total-nft-listings)
+    (var-get total-nft-listings)
+)
+
+;; Get total NFT sales
+(define-read-only (get-total-nft-sales)
+    (var-get total-nft-sales)
+)
+
+;; Get marketplace revenue
+(define-read-only (get-marketplace-revenue)
+    (var-get marketplace-revenue)
+)
+
+;; Get NFT listing details
+(define-read-only (get-nft-listing (token-id uint))
+    (contract-call? .storage get-nft-listing token-id)
+)
+
+;; Check if NFT is listed
+(define-read-only (is-nft-listed (token-id uint))
+    (is-some (contract-call? .storage get-nft-listing token-id))
+)
+
+;; Get all active listings for a seller
+(define-read-only (get-seller-listings (seller principal))
+    (contract-call? .storage get-seller-active-listings seller)
+)
+
+;; Get marketplace statistics
+;; this function returns marketplace specific information, for a user interacting on the NFT marketplace
+(define-read-only (get-marketplace-stats)
+    {
+        total-listings: (var-get total-nft-listings),
+        total-sales: (var-get total-nft-sales),
+        marketplace-revenue: (var-get marketplace-revenue),
+        marketplace-fee-percentage: MARKETPLACE-FEE-PERCENTAGE,
+        min-listing-price: MIN-LISTING-PRICE
+    }
+)
+
+;; Get the total subscriptions on platform
+(define-read-only (get-total-active-subscriptions)
+    (var-get total-active-subscriptions)
+)
+
+;; Get total subscription revenue that's been earned by platform
+(define-read-only (get-total-subscription-revenue)
+    (var-get total-subscription-revenue)
+)
+
+;; This shows us where the app stores all our fashion stuff
+(define-read-only (get-storage-contract) 
+    (var-get storage-contract)
+)
+
+;; Get the total platform statistics all in one call
+(define-read-only (get-platform-stats)
+    {
+        total-users: (var-get total-users),
+        total-content: (var-get total-content),
+        next-content-id: (var-get next-content-id),
+        total-tips-sent: (var-get total-tips-sent),
+        platform-fees-earned: (var-get platform-fees-earned),
+        total-active-subscriptions: (var-get total-active-subscriptions), 
+        total-subscription-revenue: (var-get total-subscription-revenue), 
+        total-nft-listings: (var-get total-nft-listings),                   ;; total NFTs currently listed for sale
+        total-nft-sales: (var-get total-nft-sales),                         ;; total NFTs sold on the marketplace
+        marketplace-revenue: (var-get marketplace-revenue),                 ;; total sBTC earned from marketplace fees (5%)
+        payment-token: "sBTC",  ;; This shows that all money on the platform is in sBTC  (Stacked Bitcoin)
+        all-amounts-in-satoshis: true  ;; Tells the user all numbers are in satoshis (100,000,000 sats = 1 sBTC)
+    }
+)
+
+;;===============================================
+;; USER & PROFILE LOOKUPS
+;;===============================================
+
+;; Get total followers
 ;; This function returns a user's follower count from storage.clar
 ;; it's a function that takes a principal (user's wallet address) and returns the number of followers for that user
 (define-read-only (get-total-followers (user principal))
@@ -143,41 +260,56 @@
     ERR-PROFILE-NOT-FOUND)
 )
 
-;; get total content
-(define-read-only (get-total-content)
-    (var-get total-content) 
-) ;; get total content tracks fashion pictures or videos people shared in the app, if there are 5 posts, it show the 5 posts
+;; Let's us look up a creator profile. It will fetch data from storage, this ensures modularity
+(define-read-only (get-creator-profile (user principal)) 
+    (contract-call? .storage get-creator-profile user)
+) ;; it will asks storage.clar contract to show a user profile like their username, bio, using their wallet address a special ID
 
-;; get next content ID
-(define-read-only (get-next-content-id)
-    (var-get next-content-id) ;; this will grab the number that the next post will get
+;; Let's look up a public user profile
+(define-read-only (get-public-user-profile (user principal))
+    (contract-call? .storage get-public-user-profile user)
 )
 
-;; get total tips sent
-(define-read-only (get-total-tips)
-    (var-get total-tips-sent) ;; grabs the total tips creators receieve
+;; Let's retrieves the owner (principal) of a username from storage
+(define-read-only (get-username-owner (username (string-ascii 32)))
+    (contract-call? .storage get-username-owner username)
 )
 
-;; get platform fees earned
-(define-read-only (get-platform-fees-earned) 
-    (var-get platform-fees-earned) ;; it goes into the apps piggy bank to see how much it has earned
+;;===============================================
+;; CONTENT LOOKUPS
+;;===============================================
+
+;; Let's check out the details of a picture or video
+(define-read-only (get-content-details (content-id uint))
+    (contract-call? .storage get-content-details content-id)
+) ;; this asks Storage.clar for info about a posts like its title, creator, or category using its ID number like #3
+
+;; Let's look at the details of a money tip someone sent for a post
+(define-read-only (get-tip-details (content-id uint) (tipper principal))
+    (contract-call? .storage get-tip-history content-id tipper)
+) ;; it will ask our Storage.clar for info about a tip like how much was sent or the message
+;; for a specific post and tipper by wallet address
+
+;;===============================================
+;; SOCIAL FOLLOWING LOOKUPS
+;;===============================================
+
+;; Let's see if one person is following the other on the platform
+(define-read-only (is-user-following (follower principal) (following principal)) 
+    (contract-call? .storage is-following follower following)
+) ;; it will go to the storage and check if one user by their wallet address is following another, 
+;; like checking if two people are buddies in the app
+
+;; This will get our follow records from storage
+(define-read-only (get-follow-record (follower principal) (following principal))
+    (contract-call? .storage get-follow-record follower following)
 )
 
-;;========================================
-;; NEW SUBSCRIPTION READ-ONLY FUNCTIONS
-;;=========================================
+;;===============================================
+;; SUBSCRIPTION LOOKUPS
+;;===============================================
 
-;; get the total subscriptions on platform
-(define-read-only (get-total-active-subscriptions)
-    (var-get total-active-subscriptions)
-)
-
-;; get total subscription revenue that's been earned by platform
-(define-read-only (get-total-subscription-revenue)
-    (var-get total-subscription-revenue)
-)
-
-;; get the user's subscription details
+;; Get the user's subscription details
 ;; we have to call the storage contract to retrieve the subscription details 
 (define-read-only (get-user-subscription (user principal))
     (contract-call? .storage get-user-subscription user)
@@ -185,7 +317,7 @@
 
 ;; @des: check if "subscriber" currently has a valid (non-expired) subscription to the "specified creator"
 ;; @params:
-;; - suscriber => principal
+;; - subscriber => principal
 ;; - creator   => principal
 (define-read-only (has-active-subscription (subscriber principal) (creator principal))
     (match (contract-call? .storage get-user-subscription subscriber)
@@ -209,75 +341,15 @@
     }
 )
 
-;; this shows us where the app stores all our fashion stuff
-(define-read-only (get-storage-contract) 
-    (var-get storage-contract)
-)
-
-;; Let's get the total platform statics that can get everything in one call. This is like a statement of account
-(define-read-only (get-platform-stats)
-    {
-        total-users: (var-get total-users),
-        total-content: (var-get total-content),
-        next-content-id: (var-get next-content-id),
-        total-tips-sent: (var-get total-tips-sent),
-        platform-fees-earned: (var-get platform-fees-earned),
-        total-active-subscriptions: (var-get total-active-subscriptions), ;;Added how many fans are subscribed to help creators grow
-        total-subscription-revenue: (var-get total-subscription-revenue) ;;Added how much money fans pay to help creators grow
-    }
-)
-
-;; CROSS-CONTRACT FUNCIONS
-
-;; Let's us look up a creator profile. It will fetches data from storage, this ensures modularity
-(define-read-only (get-creator-profile (user principal)) 
-    (contract-call? .storage get-creator-profile user)
-) ;; it will asks storage.clar contract to show a user profile like their username, bio, using their wallet address a special ID
-
-;; let's look up a public user profile
-(define-read-only (get-public-user-profile (user principal))
-    (contract-call? .storage get-public-user-profile user)
-)
-
-;; Let's check out the details of a picture or video
-(define-read-only (get-content-details (content-id uint))
-    (contract-call? .storage get-content-details content-id)
-) ;; this asks Storage.clar for info about a posts like its title, creator, or category using its ID number like #3
-
-;; let's see if one person is following the other on the platform
-(define-read-only (is-user-following (follower principal) (following principal)) 
-    (contract-call? .storage is-following follower following)
-) ;; it will go to the storage check if one user by their wallet address is following another, 
-;; like checking if two people are buddies in the app
-
-;; let's look at the details of a money tip someone sent for a post
-(define-read-only (get-tip-details (content-id uint) (tipper principal))
-    (contract-call? .storage get-tip-history content-id tipper)
-) ;; it will ask our Storage.clar for info about a tip like how much was sent or the message
-;; for a specific post and tipper by wallet address
-
-;;==================================
-;; NEW READ-ONLY FUNCTIONS 
-;;=====================================
-
-;; This will get our follow records from storage
-(define-read-only (get-follow-record (follower principal) (following principal))
-    (contract-call? .storage get-follow-record follower following)
-)
-
-;; Let's retrieves the owner (principal) of a username from storage
-(define-read-only (get-username-owner (username (string-ascii 32)))
-    (contract-call? .storage get-username-owner username)
-)
-
 ;; Get the creator's subscription statistics
 (define-read-only (get-creator-subscription-stats (creator principal))
     (contract-call? .storage get-creator-subscription-stats creator)
 )
 
-;;=======================================
-;; GET NFT-METADTA READ-ONLY 
-;;=======================================
+;;===============================================
+;; NFT & COLLECTION LOOKUPS
+;;===============================================
+
 ;; @desc: This function bridges the main contract to the storage contract to fetch NFT metadata
 ;; We call our storage contract to fetch the NFT metadata providing it a token id
 (define-read-only (get-nft-metadata (token-id uint))
@@ -294,7 +366,7 @@
 ;; @desc: This function shows you everything about the NFT marketplace on Glamora in one simple call
 (define-read-only (get-nft-marketplace-stats)
     {
-        ;; this will check how many individual fashion NFTs exist on the platform
+        ;; This will check how many individual fashion NFTs exist on the platform
         total-nfts: (contract-call? .glamora-nft get-total-nfts-minted),
         next-collection-id: (contract-call? .glamora-nft get-next-collection-id),
 
@@ -313,10 +385,8 @@
         ;; The biggest number of NFTs allowed in one collection
         ;; max 10,000 items per collection to keep it manageable
         max-collection-size: u10000,
-
-        ;; The amount it costs to create a new fashion collection (in microSTX)
-        ;; 5,000,000 microSTX = 5 STX tokens (the platform's creation fee)
-        collection-creation-fee: u5000000
+ 
+        collection-creation-fee: u5000000 ;; 0.05 sBTC
     }
 )
 ;; ==========================
@@ -335,19 +405,44 @@
     )
 )
 
-;; Helper function to check if user has any type of profile
+;; Check if user has any type of profile (creator or public user)
+;; @desc: I use this helper function to verify that someone has signed up on the platform before they can
+;; perform actions like following others, tipping, or subscribing. It checks both profile types because
+;; glamora has two kinds of users - creators who post content, and public users who just enjoy and support.
+;; if either profile type exists, this returns true, otherwise false.
+;; @params:
+;; - user: The wallet address we're checking
 (define-private (has-profile (user principal))
+    ;; I check both the creator profile map AND the public user profile map
+    ;; and if the user has either one they're considered registered
+    ;; The 'or' means if EITHER check returns true, the whole function returns true
     (or (is-some (contract-call? .storage get-creator-profile user))
-        (is-some (contract-call? .storage get-public-user-profile user))))
+    (is-some (contract-call? .storage get-public-user-profile user)))
+)
 
 ;; Calculates how much platform fee to take from a tip (5% of total tip amount)
 (define-private (calculate-platform-fee (amount uint))
     (/ (* amount PLATFORM-TIP-PERCENTAGE) u100)
 ) ;; (amout x 5) divide by 100 = 5%
 
-;;======================================
-;; NEW SUBSCRIPTION HELPER FUNCTIONS
-;;=========================================
+;; Calculate marketplace fee from sale price (5% of total)
+(define-private (calculate-marketplace-fee (sale-price uint))
+    (/ (* sale-price MARKETPLACE-FEE-PERCENTAGE) u100)
+)
+
+;; Validate NFT listing price meets minimum requirement
+;; @desc: I use this to make sure people don't list NFTs for ridiculously low prices that might be mistakes
+;; or spam. The minimum listing price is 0.01 sBTC which is 1000000 micro sBTC. This protects both sellers from
+;; accidentally listing valuable NFTs too cheap, and keeps the marketplace quality high by preventing
+;; spam listings for tiny amounts.
+;; @params:
+;; - price: The listing price in satoshis that someone wants to set for their NFT
+;; @returns: true if price is at least 0.01 sBTC, false if it's less
+(define-private (is-valid-listing-price (price uint))
+    ;; I check if the proposed price is greater than or equal to our minimum (0.01 sBTC)
+    ;; if someone tries to list for 0.005 sBTC, this returns false and prevents the listing
+    (>= price MIN-LISTING-PRICE)
+)
 
 ;; This function checks that tier level entered is between 1 and 3 for tier levels
 (define-private (is-valid-tier (tier uint))
@@ -355,17 +450,17 @@
 )
 
 ;; @desc: This helper function tells us how much each subscription tier costs
-;; we give it a tier number (1, 2, or 3) and it gives back the price
+;; I give it a tier number (1, 2, or 3) and it gives back the price
 ;; the function uses nested if statements to select the right price for each tier level
 ;; @param: tier - which is the subscription level the user wants (1=Basic, 2=Premium, 3=VIP)
 (define-private (get-tier-price (tier uint))
     (if (is-eq tier TIER-BASIC)
-        (ok BASIC-SUBSCRIPTION-PRICE)   ;; 5 STX for basic tier
+        (ok BASIC-SUBSCRIPTION-PRICE)           ;; 0.02 sBTC per month
         (if (is-eq tier TIER-PREMIUM) 
-            (ok PREMIUM-SUBSCRIPTION-PRICE)   ;; 10 STX for premium tier
+            (ok PREMIUM-SUBSCRIPTION-PRICE)    ;; 0.05 sBTC per month
             (if (is-eq tier TIER-VIP)
-                (ok VIP-SUBSCRIPTION-PRICE)   ;; 20 STX for VIP tier 
-                ERR-INVALID-TIER ;; if the tier is not valid then we get this error
+                (ok VIP-SUBSCRIPTION-PRICE)    ;; 0.06 sBTC per month 
+                ERR-INVALID-TIER                ;; if the tier is not valid then we get this error
             )
         )
     )
@@ -376,7 +471,7 @@
     (> expiry-block stacks-block-height)
 )
 
-;; ====================================================================================================
+;; =====================================
 ;; PUBLIC FUNCTIONS 
 ;; =====================================
 ;; PROFILE MANAGEMENT
@@ -386,8 +481,7 @@
 ;; This function starts user journey, storing data securely via storage.clar
 
 ;; @desc 
-;; - this function creates a new user profile on the platform making sure all information 
-;; is correct
+;; - This function creates a new user profile on the platform making sure all information is correct
 ;; @param 
 ;; - username (string-ascii 32)  your unique username like "@dredgeclassics"
 ;; - display-name (string-utf8 32) your public name like "Timothy Terese Chimbiv"
@@ -445,7 +539,7 @@
         ;; Save the public user profile data by calling the storage contract
         (unwrap! (contract-call? .storage create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
-        ;; Update platform statistics - we now have one more user so we increment by one
+        ;; Update platform statistics - now, one more user so increment by one
         (var-set total-users (+ current-users u1))
 
         ;; Success - new public user has joined the platform
@@ -464,62 +558,72 @@
 ;; =====================================
 
 ;; PUBLISH NEW FASHION CONTENT  
-;; @desc
-;; - this function lets creators share fashion posts 
+;; @desc: This function lets creators share their fashion posts on Glamora, whether it's runway shows,
+;; lookbooks, tutorials, behind-the-scenes content, or product reviews. Each post gets a unique ID number
+;; and is stored permanently on the blockchain.
 
-;; NOTE:
-;; content-hash is a mock hash for testing, a placeholder for fashion photos or videos. It will let us test the contract logic 
-;; (e.g., posting, tipping) so no full off-chain storage system is required for now
-;; Later, glamora will use IPFS to store content and point content-hash to those files on the decentralized storage
+;; IPFS INTEGRATION:
+;; I've built this function to work with IPFS (InterPlanetary File System) for decentralized content storage.
+;; The content-hash parameter is a unique fingerprint of the fashion photo or video, while the ipfs-hash
+;; parameter stores the actual IPFS link where the file lives. This means the content isn't stored directly
+;; on the blockchain (that would be expensive), but the blockchain keeps a permanent record pointing to
+;; where the content is stored on IPFS. If you don't have an IPFS hash yet, you can pass 'none' and add it later.
 
-;; ENHANCEMENT:
-;; Added IPFS-HASH parameter so users can input their ipfs-hash if they have one
-
-;; @param
-;; - title (string-utf8 64)
-;; - description (string-utf8 256)
-;; - content-hash (buff 32)
-;; - category uint
+;; @params:
+;; - title: The title of your fashion post (max 64 characters)
+;; - description: Tell people about your post, styling tips, inspiration, etc (max 256 characters)
+;; - content-hash: A unique 32-byte fingerprint of your content file for verification
+;; - ipfs-hash: The IPFS address where your actual photo/video is stored (optional, can be none)
+;; - category: What type of content this is (1=Fashion Show, 2=Lookbook, 3=Tutorial, 4=Behind-the-Scenes, 5=Review)
 (define-public (publish-content (title (string-utf8 64)) (description (string-utf8 256)) (content-hash (buff 32)) (ipfs-hash (optional (string-ascii 64))) (category uint))
     (let
         (
-            ;; we need to get the ID number that the next post will get
+            ;; I need to get the ID number that this new post will get
+             ;; Posts are numbered sequentially: first post is #1, second is #2, etc.
             (content-id (var-get next-content-id))
 
-            ;; we need to also get the current posts existing on the platform
+            ;; I also need to know how many posts currently exist so I can update the counter
             (current-content-count (var-get total-content))
 
         )
 
-        ;; Let's Validate to make sure everything is okay
+        ;; VALIDATION CHECKS
 
-        ;; Category must be a valid number (1, 2, 3, 4, or 5)
+        ;; First, I make sure the category number is valid (must be between 1 and 5)
+        ;; If someone tries to use category 99, this will stop them
         (asserts! (is-valid-category category) ERR-INVALID-INPUT)
 
-        ;; Most important: we have to make sure this person is actually a member of our platform first
+        ;; Most important: I verify this person is actually a registered creator on Glamora
+        ;; Only creators can post content, public users can only view and support
         (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
-        ;; SAVE CONTENT - we call over to the storage contract to save this new post
+        ;; SAVE CONTENT TO STORAGE
+        ;; I call the storage contract to permanently save all the post details
+        ;; This includes the title, description, category, and both the content hash and IPFS link
         (unwrap! (contract-call? .storage create-content 
                     content-id
                     tx-sender
                     title
                     description
                     content-hash
-                    ipfs-hash ;; added for enhancement
+                    ipfs-hash 
                     category
                 ) 
-                ERR-TRANSFER-FAILED
+            ERR-TRANSFER-FAILED
         )
 
-        ;; Add to our counters  
-        ;; Now we can update our "total posts" counter 
+        ;; UPDATE PLATFORM COUNTERS
+  
+        ;; I increment the total content counter by 1
+        ;; If we had 100 posts before, now we have 101
         (var-set total-content (+ current-content-count u1))
 
-        ;;We have to update the next available ID number
+         ;; I also increment the next content ID so the next post gets a new unique number
+        ;; If this post got ID ##101 the next one will get ##102
         (var-set next-content-id (+ content-id u1))
 
-        ;; we now have a new content
+        ;; LOG THE EVENT
+        ;; I record that a new post was created so frontends and explorers can track it
         (print {
             event: "content-published",       ;; what type of event happened
             content-id: content-id,           ;; The post's unique ID number
@@ -529,7 +633,8 @@
             ipfs: ipfs-hash     
         })
 
-        (ok content-id) ;; return the content ID to the user
+        ;; Return the new post's ID number so the creator knows what number their post got
+        (ok content-id) 
     )
 )
 
@@ -539,7 +644,7 @@
 
 ;; SEND TIP TO CREATOR
 ;; @desc 
-;; - this function enable fans support, tipping creators as a sign of appreciation for their content
+;; - This function enable fans support, tipping creators as a sign of appreciation for their content
 ;; Platform takes 5%, creator gets 95% of the tip
 ;; @params
 ;; - content-id uint
@@ -569,13 +674,25 @@
         ;; Prevent users from tipping themselves
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
 
-        ;; PAYMENT PROCESSING
+        ;; ;; SBTC PAYMENT PROCESSING
 
-        ;; Transfer 95% of tip to the content creator
-        (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
+        ;; Transfer 95% of tip to the content creator using sBTC
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            creator-amount 
+            tx-sender 
+            creator 
+            none)                    ;; the none parameter is for memo which is optional so (we pass none)
+            ERR-TRANSFER-FAILED
+        )
         
-        ;; Transfer 5% platform fee to the contract
-        (unwrap! (stx-transfer? platform-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
+        ;; Transfer 5% platform fee to the contract using sBTC
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            platform-fee 
+            tx-sender 
+            CONTRACT-ADDRESS 
+            none) 
+            ERR-TRANSFER-FAILED
+        )
 
         ;; DATA RECORDING
         ;; Save tip details permanently in storage contract
@@ -585,7 +702,9 @@
                     creator         ;; Who received the tip
                     tip-amount      ;; Total amount tipped
                     message         ;; Message from tipper
-                ) ERR-TRANSFER-FAILED)
+                ) 
+            ERR-TRANSFER-FAILED
+        )
 
 
         ;; PLATFORM STATISTICS UPDATE
@@ -604,7 +723,8 @@
             creator: creator,                   ;; Who received the tip
             amount: tip-amount,                 ;; Total tip amount
             platform-fee: platform-fee,         ;; Platform's cut
-            creator-received: creator-amount    ;; Creator's actual payout
+            creator-received: creator-amount,    ;; Creator's actual payout
+            payment-token: "sBTC"
         })
 
         (ok true)  ;; Return success status
@@ -617,11 +737,10 @@
 
 ;; FOLLOW ANOTHER CONTENT CREATOR 
 ;; @desc 
-;;   follow-user builds social connections
-;;   following is completely FREE, just building friendships, global access
+;; - follow-user builds social connections
+;; - following is completely FREE, just building friendships, global access
 ;; @params
 ;; - user-to-follow principal
-
 (define-public (follow-user (user-to-follow principal))
     (begin
         ;; Make sure caller has a profile (either creator or public user)
@@ -651,7 +770,7 @@
 
 ;; UNFOLLOW A USER  
 ;; @desc 
-;; unfollow-user removes social connections
+;; Unfollow-user removes social connections
 ;; @params
 ;; - user-to-unfollow
 (define-public (unfollow-user (user-to-unfollow principal)) 
@@ -672,13 +791,9 @@
     )
 )
 
-;;=====================================
-;; NEW SUBSCRIPTION PUBLIC FUNCTIONS
-;;=====================================
-
 ;; Susbscribe to creator
 ;; @desc
-;; - This function lets fans subscribe to their favorite creators for content access
+;; - This function lets fans subscribe to their favorite creators using sBTC
 ;; - Subscribers pay monthly fees and get premium benefits
 ;; - Platform takes 5% fee, creator gets 95% of subscription revenue
 ;; @params
@@ -712,11 +827,23 @@
         ;; Check the user does not already have active subscription to this creator
         (asserts! (not (has-active-subscription tx-sender creator)) ERR-SUBSCRIPTION-ACTIVE)
         
-        ;; Transfer 95% of subscription fee to creator
-        (unwrap! (stx-transfer? creator-amount tx-sender creator) ERR-TRANSFER-FAILED)
+        ;; Transfer 95% of subscription fee to creator using sBTC
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            creator-amount 
+            tx-sender 
+            creator 
+            none) 
+            ERR-TRANSFER-FAILED
+        )
         
-        ;; Transfer 5% platform fee to contract
-        (unwrap! (stx-transfer? platform-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
+        ;; Transfer 5% platform fee to contract using sBTC
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            platform-fee 
+            tx-sender 
+            CONTRACT-ADDRESS 
+            none) 
+            ERR-TRANSFER-FAILED
+        )
         
         ;; Call the storage contract save subscription details 
         (unwrap! (contract-call? .storage create-subscription
@@ -728,7 +855,8 @@
                     TIER-BASIC
                     TIER-PREMIUM
                     TIER-VIP
-                ) ERR-STORAGE-FAILED
+                ) 
+            ERR-STORAGE-FAILED
         )
         
         ;; Increment total active subscriptions count
@@ -746,7 +874,8 @@
             price: subscription-price,
             creator-received: creator-amount,
             platform-fee: platform-fee,
-            expiry-block: expiry-block
+            expiry-block: expiry-block,
+            payment-token: "sBTC"
         })
         
         (ok true)
@@ -773,12 +902,12 @@
         
         ;; Remove the subscription from storage
         (unwrap! (contract-call? .storage cancel-subscription 
-                    tx-sender 
-                    TIER-BASIC 
-                    TIER-PREMIUM 
+                    tx-sender
+                    TIER-BASIC
+                    TIER-PREMIUM
                     TIER-VIP
-                 ) 
-                ERR-STORAGE-FAILED
+                ) 
+            ERR-STORAGE-FAILED
         )
         
         ;; Decrease the total active subscriptions count by 1 to reflect the cancellation,
@@ -799,10 +928,7 @@
 
 ;; CREATE NFT FASHION COLLECTION
 ;; @desc: This function lets fashion creators start their own digital fashion collection on glamora
-;; firstly, you must be a registered creator on glamora - have a creator profile
-;; secondly, Pay a 5 STX fee to create the collection, like a business license fee
-;; third, give your collection a name, description, and set how many NFTs it can hold
-;; fourth, the system creates your collection and gives it a unique ID number
+;; Pay a 0.05 sBTC fee to create the collection
 ;; @params:
 ;; - collection-name: the name of your fashion collection
 ;; - description: tell people what your collection is about 
@@ -811,28 +937,34 @@
     (collection-name (string-utf8 32)) 
     (description (string-utf8 256)) 
     (max-editions uint)) 
-    (let
-        (
-            ;; Set the cost to create a new fashion collection
-            (collection-creation-fee u5000000) ;; 5 STX
-        )
-
+    (begin
         ;; Make sure the person trying to create this collection is actually a registered creator
-        ;; we check our storage system to see if they have a creator profile
-        ;; only creators can make collections - regular users can only buy/tip/follow
         (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
 
-        ;; Collect the 5 STX creation fee from the creator
-        ;; the money goes from creator's wallet to the platform's contract wallet
-        (unwrap! (stx-transfer? collection-creation-fee tx-sender CONTRACT-ADDRESS) ERR-TRANSFER-FAILED)
+        ;; Collect the 0.05 sBTC creation fee from the creator using sBTC token
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            COLLECTION-CREATION-FEE 
+            tx-sender 
+            CONTRACT-ADDRESS 
+            none) 
+            ERR-TRANSFER-FAILED)
 
-        ;; Now that payment is done and creator is verified, we will create the collection
-        ;; by calling the glamora-nft contract which handles all the NFT collection logic
-        ;; it will confirm the collection details, assign an ID, and store everything
-        (unwrap! (contract-call? .glamora-nft create-fashion-collection collection-name description max-editions) 
+        ;; Create the collection by calling the glamora-nft contract
+        (unwrap! (contract-call? .glamora-nft create-fashion-collection 
+            collection-name 
+            description 
+            max-editions) 
             ERR-STORAGE-FAILED)
 
-        ;; return success message
+        ;; Log the event
+        (print {
+            event: "collection-created",
+            creator: tx-sender,
+            collection-name: collection-name,
+            fee-paid: COLLECTION-CREATION-FEE,
+            payment-token: "sBTC"
+        })
+
         (ok true)
     )
 )
