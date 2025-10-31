@@ -1,3 +1,4 @@
+;;=======================================
 ;; title: glamora-nft
 
 ;; summary:Glamora Fashion Platform NFT Contract that complies with SIP-009 
@@ -14,38 +15,30 @@
 (impl-trait .sip-009.nft-trait)
 
 ;;========================================
-;; ERROR CODES
+;; CONSTANTS
 ;;========================================
 
 (define-constant ERR-NOT-NFT-OWNER (err u200)) ;; The caller is not the owner of this NFT
-(define-constant ERR-TRANSFER-FAILED (err u201)) ;; When STX or NFT transfer operation fails
+(define-constant ERR-TRANSFER-FAILED (err u201)) ;; When sBTC or NFT transfer operation fails
 
-;; New error codes for collection management 
 (define-constant ERR-NOT-AUTHORIZED (err u202)) ;; The caller is not authorized, 
 ;; the error triggers if the caller is not the .main contract
 
 (define-constant ERR-INVALID-COLLECTION-NAME (err u203)) ;; when an invalid collection name is provided, 
 ;; either the collection name is empty or too short
+ 
+(define-constant ERR-INVALID-INPUT (err u204)) ;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
 
-;; Invalid input parameters, 
-;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
-(define-constant ERR-INVALID-INPUT (err u204)) 
-
-;; ADDITIONAL ERROR CODES
 (define-constant ERR-STORAGE-FAILED (err u205)) ;; When saving data to storage contract fails
 
-;;========================================
-;; CONSTANTS
-;;========================================
-;; This sets a 5 STX fee (in microSTX) for creating a new fashion collection on the platform
-(define-constant COLLECTION-CREATION-FEE u5000000) 
+(define-constant COLLECTION-CREATION-FEE u5000000) ;; Collection creation fee 0.05 sBTC
 
 ;; COLLECTION SIZE LIMITS
 ;; @desc: These set the rules for how big or small a fashion collection can be
 ;; MIN-COLLECTION-SIZE: The smallest number of NFTs allowed in one collection
-;;                      We set this to 1 because a collection needs at least 1 item to make sense
-;; MAX-COLLECTION-SIZE: The largest number of NFTs allowed in one collection  
-;;                      We set this to 10,000 to prevent spam attacks and keep collections manageable
+;; I set this to 1 because a collection needs at least 1 item to count
+;; MAX-COLLECTION-SIZE: The largest number of NFTs allowed in one collection 
+;; set this to 10,000 to prevent spam attacks and keep collections manageable
 (define-constant MIN-COLLECTION-SIZE u1)      ;; every collection must have at least 1 NFT
 (define-constant MAX-COLLECTION-SIZE u10000)  ;; no collection can have more than 10,000 NFTs
 
@@ -56,7 +49,6 @@
 (define-data-var total-nfts-minted uint u0) ;; this function will keep track of the total NFTs that's been minted,
 ;; initially starts at 0 and increases with each new mint
 
-;; New Platform Variables 
 (define-data-var next-collection-id uint u1) ;; next-collection-id tracks the ID for the next fashion collection 
 ;; it starts at 1 and increases with each new collection assigning unique IDs
 

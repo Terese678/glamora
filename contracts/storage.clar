@@ -18,11 +18,13 @@
 ;;===================================
 
 ;; ERROR CODES 
-(define-constant ERR-NOT-AUTHORIZED (err u100))  ;; ensures only main writes
-(define-constant ERR-USER-NOT-FOUND (err u101))  ;; the user's profile can't be found anywhere
-(define-constant ERR-USERNAME-TAKEN (err u102))  ;; Someone has already picked that username 
-(define-constant ERR-PROFILE-EXISTS (err u103))  ;; User already created their profile before
-(define-constant ERR-INVALID-DATA (err u104))    ;; The information inputted is wrong
+(define-constant ERR-NOT-AUTHORIZED (err u100))         ;; ensures only main writes
+(define-constant ERR-USER-NOT-FOUND (err u101))         ;; the user's profile can't be found anywhere
+(define-constant ERR-USERNAME-TAKEN (err u102))         ;; Someone has already picked that username 
+(define-constant ERR-PROFILE-EXISTS (err u103))         ;; User already created their profile before
+(define-constant ERR-INVALID-DATA (err u104))           ;; The information inputted is wrong
+(define-constant ERR-LISTING-NOT-FOUND (err u105))      ;; NFT listing not found
+(define-constant ERR-LISTING-EXISTS (err u106))         ;; NFT already has active listing
 
 ;;================================
 ;; Variables 
@@ -39,7 +41,7 @@
 ;; Data Maps 
 ;;===============================
 
-;; This stores information about each creator profiles
+;; This map stores information about each creator profiles
 (define-map creator-profiles principal {
     creator-username: (string-ascii 32),
     display-name: (string-utf8 32),
@@ -52,7 +54,7 @@
     total-tips-sent: uint
 })
 
-;; Let's create a map for public user profiles
+;; Public user profiles map
 (define-map public-user-profiles principal {
     public-username: (string-ascii 32),
     display-name: (string-utf8 32),
@@ -63,12 +65,8 @@
     user-type: (string-ascii 10)  
 })
 
-;;=================================
-;; NEW SUBSCRIPTION DATA MAPS 
-;;====================================
-
-;; Store subscription details for each user
-;; This map will track individual subscription records, using the subscriber's principal as the key
+;; This map stores subscription details for each user individual subscription records, 
+;; using the subscriber's principal as the key
 (define-map user-subscriptions principal {
     subscribed-to: principal,   ;; the principal address of the creator the user is subscribed to,
                                 ;; it links the subscription to a specific creator profile
@@ -79,8 +77,8 @@
     active: bool
 })
 
-;; This map rack creator's subscription statistics  
-;; It keeps count of how many fans pay monthly to follow them and how much money they make,
+;; This map stores subscription statistics  
+;; keeps count of how many fans pay monthly to follow them and how much money they make,
 ;; each creator (identified by their wallet addresses) gets their own set of numbers
 (define-map creator-subscription-stats principal {
     total-subscribers: uint,
@@ -90,7 +88,7 @@
     vip-subscribers: uint
 })
 
-;; This connects each username to the user address for easy lookup
+;; This map connects each username to the user address for easy lookup
 (define-map usernames (string-ascii 32) principal)
 
 ;; This stores details about each fashion content post
@@ -121,9 +119,6 @@
     active: bool
 })
 
-;;=======================================
-;; NEW NFT-METADATA STORAGE MAP 
-;;=======================================
 ;; @desc: This map stores all the detailed information about each NFT that was minted
 (define-map nft-metadata uint {
     name: (string-utf8 64),
@@ -134,14 +129,10 @@
     attributes-ipfs-hash: (optional (string-ascii 64))
 })
 
-;; FASHION COLLECTIONS MAP
-;; This map stores all the information about fashion collection on our platform
-;; every time someone creates a new fashion collection, we store all its information here
-;; this enables us to keep track of who created what and how many NFTs are in each collection
 
-;; Fashion Collections Map
-;; They key is collection ID (uint) a unique number assigned to each collection
-;; the value is a record containing all the collection information
+;; Every time someone creates a new fashion collection, we store all its information here
+;; in Fashion Collections Map
+;; key: collection ID (uint) a unique number assigned to each collection
 (define-map fashion-collections uint {
     collection-name: (string-utf8 32),
     creator: principal,
@@ -151,6 +142,36 @@
     creation-date: uint,
     active: bool
 })
+
+;;===============================================
+;; NFT MARKETPLACE DATA MAPS
+;;===============================================
+
+;; Store NFT listing information
+;; Key: token-id (uint)
+;; Value: listing details
+(define-map nft-listings uint {
+    seller: principal,
+    price: uint,
+    listed-at: uint,
+    active: bool
+})
+
+;; store sales history for each NFT
+;; Key: {token-id, sale-index}
+;; Value: sale details
+(define-map nft-sale-history {token-id: uint, sale-index: uint} {
+    seller: principal,
+    buyer: principal,
+    sale-price: uint,
+    sale-date: uint
+})
+
+;; Track number of times each NFT has been sold
+(define-map nft-sale-count uint uint)
+
+;; Track active listings per seller
+(define-map seller-listing-count principal uint)
 
 ;;================================
 ;;; Private helper functions 
@@ -165,10 +186,6 @@
 (define-private (is-admin)
     (is-eq tx-sender (var-get contract-admin))
 )
-
-;;================================
-;; NEW PRIVATE TIER FUNCTIONS
-;;=====================================
 
 ;; @desc: this helper function will add 1 to tier counter only if the subscription matches the target tier
 ;; for example, if a user subscribes to Premium which is (tier u2), only premium counter increases
@@ -219,10 +236,6 @@
     (map-get? public-user-profiles user)
 )
 
-;;============================================
-;; NEW SUBSCRIPTION READ-ONLY FUNCTIONS
-;;==================================================
-
 ;; get the user's subscription details
 (define-read-only (get-user-subscription (user principal))
     (map-get? user-subscriptions user)
@@ -254,10 +267,6 @@
     (map-get? tip-history {content-id: content-id, tipper: tipper})
 )
 
-;;===============================
-;; NEW READ-ONLY FUNCTION 
-;;===============================
-
 ;; this will fetch the follow record, follow date and active status
 ;; @param 
 ;; - follower:
@@ -282,9 +291,6 @@
     )
 )
 
-;;=======================================
-;; NEW GET NFT-METADATA READ-ONLY FUNCTION
-;;=======================================
 ;; @desc: This function will fetch all the detailed information about a specific NFT
 ;; by giving it an NFT ID number, it looks in our nft-metadata map using that ID as the key
 ;; and return the information if found or nothing if NFT does not exist
@@ -292,10 +298,30 @@
     (map-get? nft-metadata token-id)
 )
 
-;; GET COLLECTION DATA
+;; Get collection data
 ;; @desc: This function will look up and return all the information about a specific fashion collection
 (define-read-only (get-collection-data (collection-id uint)) 
     (map-get? fashion-collections collection-id)
+)
+
+;; Get NFT listing details
+(define-read-only (get-nft-listing (token-id uint))
+    (map-get? nft-listings token-id)
+)
+
+;; Get NFT sale history entry
+(define-read-only (get-nft-sale-history (token-id uint) (sale-index uint))
+    (map-get? nft-sale-history {token-id: token-id, sale-index: sale-index})
+)
+
+;; Get total number of sales for an NFT
+(define-read-only (get-nft-sale-count (token-id uint))
+    (default-to u0 (map-get? nft-sale-count token-id))
+)
+
+;; Get number of active listings for a seller
+(define-read-only (get-seller-active-listings (seller principal))
+    (default-to u0 (map-get? seller-listing-count seller))
 )
 
 ;;===================================================
@@ -604,7 +630,7 @@
 
 ;; REMOVE FOLLOW CONNECTION
 ;; @desc
-;; - this function lets a user stop following another user, it deletes the connection and updates their profiles
+;; - This function lets a user stop following another user, it deletes the connection and updates their profiles
 ;; @param
 ;; - follower principal
 ;; - following principal
@@ -858,3 +884,119 @@
         (ok true)
     )
 )
+
+;; CREATE NFT LISTING
+;; @desc: This function stores NFT listing information
+;; @params:
+;; - token-id: NFT to list
+;; - seller: Owner listing the NFT
+;; - price: Sale price in sBTC satoshis
+(define-public (create-nft-listing (token-id uint) (seller principal) (price uint))
+    (let
+        (
+            ;; get seller's current listing count
+            (current-count (default-to u0 (map-get? seller-listing-count seller)))
+        )
+        
+        ;; Ensure only authorized contract can create listings
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Ensure NFT is not already listed
+        (asserts! (is-none (map-get? nft-listings token-id)) ERR-LISTING-EXISTS)
+        
+        ;; Store listing information
+        (map-set nft-listings token-id {
+            seller: seller,
+            price: price,
+            listed-at: stacks-block-height,
+            active: true
+        })
+        
+        ;; Increment seller's active listing count
+        (map-set seller-listing-count seller (+ current-count u1))
+        
+        (ok true)
+    )
+)
+
+;; COMPLETE NFT SALE
+;; @desc: Record NFT sale and update listing status
+;; @params:
+;; - token-id: NFT that was sold
+;; - buyer: Purchaser of the NFT
+;; - sale-price: Final sale price
+(define-public (complete-nft-sale (token-id uint) (buyer principal) (sale-price uint))
+    (let
+        (
+            ;; get listing details
+            (listing-data (unwrap! (map-get? nft-listings token-id) ERR-LISTING-NOT-FOUND))
+            
+            ;; get seller info
+            (seller (get seller listing-data))
+            
+            ;; get current sale count for this NFT
+            (current-sale-count (default-to u0 (map-get? nft-sale-count token-id)))
+            
+            ;; get seller's listing count
+            (seller-count (default-to u1 (map-get? seller-listing-count seller)))
+        )
+        
+        ;; Ensure only authorized contract can complete sales
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Record sale in history
+        (map-set nft-sale-history 
+            {token-id: token-id, sale-index: current-sale-count} 
+            {
+                seller: seller,
+                buyer: buyer,
+                sale-price: sale-price,
+                sale-date: stacks-block-height
+            }
+        )
+        
+        ;; Increment sale count for this NFT
+        (map-set nft-sale-count token-id (+ current-sale-count u1))
+        
+        ;; Mark listing as inactive
+        (map-set nft-listings token-id
+            (merge listing-data {active: false})
+        )
+        
+        ;; Decrement seller's active listing count
+        (map-set seller-listing-count seller (- seller-count u1))
+        
+        (ok true)
+    )
+)
+
+;; CANCEL NFT LISTING
+;; @desc: Remove NFT from marketplace
+;; @params:
+;; - token-id: NFT to unlist
+(define-public (cancel-nft-listing (token-id uint))
+    (let
+        (
+            ;; get listing details
+            (listing-data (unwrap! (map-get? nft-listings token-id) ERR-LISTING-NOT-FOUND))
+            
+            ;; get seller info
+            (seller (get seller listing-data))
+            
+            ;; get seller's listing count
+            (seller-count (default-to u1 (map-get? seller-listing-count seller)))
+        )
+        
+        ;; Ensure only authorized contract can cancel listings
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Delete the listing
+        (map-delete nft-listings token-id)
+        
+        ;; Decrement seller's active listing count
+        (map-set seller-listing-count seller (- seller-count u1))
+        
+        (ok true)
+    )
+)
+
