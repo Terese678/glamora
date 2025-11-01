@@ -1,45 +1,76 @@
-Glamora: Decentralized Fashion Social Platform on Stacks
-## Description
-Glamora is a decentralized fashion social platform where creators share fashion content across 5 categories (Fashion Shows, Lookbooks, Tutorials, Behind-the-Scenes, Reviews) and receive direct STX cryptocurrency tips from fans. Public users can follow creators and support them with tips. Platform takes only 5% fee, creators keep 95%.
+# Glamora - Fashion creators getting paid in Bitcoin
 
-## Features
-- **Creator Profiles**: Fashion creators showcase expertise and build followers
-- **Public User Profiles**: Fashion enthusiasts discover trends and support creators  
-- **Content Publishing**: Share fashion content across 5 specialized categories
-- **STX Tipping System**: Direct cryptocurrency support (95% to creators, 5% platform fee)
-- **Social Following**: Build connections within the fashion community
-- **Secure Storage**: Modular data architecture with authorization controls
+**Fashion creators getting paid in Bitcoin. That's it.**
 
-## Smart Contracts
-- **main.clar**: Core platform logic for profiles, content publishing, tipping, and social features
-- **storage.clar**: Secure data storage for all platform information with access controls
+I built this because fashion creators deserve better than platforms taking 30-50% cuts and holding their money for weeks. With Glamora, creators post their work, fans tip them Bitcoin (through sBTC), and creators keep 95%. Money moves instantly.
 
-## Architecture
-- Modular design with separated logic and storage contracts
-- Authorization system ensuring only main contract can write to storage
-- Platform statistics tracking (users, content, tips, fees)
-- Minimum tip requirement: 1 STX (100,000 microstacks)
+## What This Actually Does
 
-## Testing & Development
-1. Install Clarinet from https://github.com/hirosystems/clarinet/releases
-2. Create a new project: `clarinet new glamora`
-3. Copy `main.clar` and `storage.clar` from this repository to the `glamora/contracts` folder
-4. Validate contracts: `clarinet check`
-5. Run tests: `clarinet test`  
+**For Fashion Creators:**
+- Post your runway shows, lookbooks, styling tutorials, whatever
+- People tip you in Bitcoin
+- You get 95%, I take 5% to keep the platform running
+- Fans can subscribe monthly to support you
+- You can create and sell NFT collections of your work
 
-## Content Categories
-1. Fashion Shows - Runway and model showcases
-2. Lookbooks - Style photo collections  
-3. Tutorials - Educational fashion content
-4. Behind-the-Scenes - Creative process insights
-5. Reviews - Fashion product evaluations
+**For Fashion Fans:**
+- Follow creators you like
+- Tip them when they post something nice
+- Subscribe if you're a real fan
+- Collect their NFTs
 
-## Future Roadmap
-- NFT integration for unique fashion collectibles and creator rewards
-- IPFS integration for decentralized content storage
-- Enhanced creator monetization features
-- Mobile application development
-- Community governance implementation
+## The Money Part
 
-**Author**: Timothy Terese Chimbiv  
-**Version**: 3.0
+Everything runs on sBTC (Bitcoin on Stacks). Why sBTC? It's Bitcoin-backed, not just another platform token.
+
+- **Tips**: Start at 0.001 sBTC 
+- **Subscriptions**: Basic => 0.02 sBTC, Premium => 0.05 sBTC, and VIP => 0.06 sBTC monthly
+- **NFT Collections**: 0.05 sBTC to create 
+- **Platform fee**: 5% keeps the platform running
+
+## The Tech
+
+Built on Stacks (Bitcoin layer) using Clarity smart contracts:
+
+- **main.clar** - Core logic (profiles, tips, subscriptions, follows)
+- **storage.clar** - Secure database with authorization controls
+- **glamora-nft.clar** - NFT functionality (SIP-009 compliant)
+- **sip-009.clar** - NFT standard trait
+- **sbtc-token.clar** - Mock Bitcoin for local testing
+
+The content lives on IPFS for true decentralized storage.
+
+## Running It Locally
+```bash
+git clone https://github.com/Terese678/glamora.git
+cd glamora
+clarinet check    # Make sure nothing's broken
+clarinet test     # Run the tests
+```
+If clarinet check passes, then it's fine
+
+## Current Features
+
+- Creator and public user profiles  
+- Content publishing across 5 fashion categories  
+- Bitcoin tipping system  
+- Monthly subscriptions  
+- NFT collection creation and minting  
+- Social following system  
+- IPFS content storage  
+- NFT marketplace (list/buy/sell)  
+
+## What's Next
+
+- Better discovery and search
+- Mobile-optimized interface
+- Creator analytics dashboard
+- Enhanced NFT features
+
+## Why I Built This
+
+I'm Timothy. I write Clarity contracts. I saw fashion creators getting exploited by web2 platforms and thought blockchain could actually solve this one. Direct payments between creators and fans, that's what crypto should enable.
+
+Built by Timothy Terese Chimbiv  
+Version 3.0  
+https://github.com/Terese678 | Questions? 
