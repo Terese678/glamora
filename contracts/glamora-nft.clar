@@ -120,10 +120,6 @@
     (> (len name) u0)
 )
 
-;; @desc: this checks how many NFTs are left to mint in a collection
-;; - and it returns the number of nfts still available to mint
-;; @param: collection-id - the collection we need to check
-
 ;;=======================================
 ;; ADMIN FUNCTIONS
 ;;=======================================
