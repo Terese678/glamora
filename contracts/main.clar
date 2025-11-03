@@ -50,6 +50,7 @@
 (define-constant ERR-SBTC-TRANSFER-FAILED (err u23))  ;; triggers when sBTC transfer fails
 (define-constant ERR-NFT-TRANSFER-FAILED (err u24))   ;; when NFT transfer fails during purchase
 (define-constant ERR-NOT-NFT-OWNER (err u25))         ;; if the caller is not the owner of this NFT
+(define-constant ERR-PRICE-SLIPPAGE (err u26))        ;; when price exceeds buyer's maximum acceptable price
 
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
@@ -220,6 +221,33 @@
         marketplace-fee-percentage: MARKETPLACE-FEE-PERCENTAGE,
         min-listing-price: MIN-LISTING-PRICE
     }
+)
+
+;; this is a helper function to calculate acceptable slippage
+;; I added this as a read-only function to help frontends
+;;----------------------------------------------------------
+;; for example a user sees NFT for 0.1 sBTC 10,000,000 sats
+;; the user sets 5% tolerance "max-price => 0.105 sBTC 10,500,000 sats
+;; the user goes ahead to clicks "Buy"
+;; just then the seller updates price to 0.2 sBTC 20,000,000 sats
+;; but our check covers it - check: is 20,000,000 <= 10,500,000? NO! 
+;; the transaction is REJECTED - "Price too high" user's money stays safe 
+;;------------------------------------------------------------
+;; calculate the maximum acceptable price with slippage tolerance
+;; @desc: it will help buyers to determine their max-price parameter
+;; @param current-price, the NFT's current listing price
+;; @param slippage-bps, the slippage tolerance in "basis points" (100 bps = 1%)
+;; example: if NFT costs 0.1 sBTC and you accept 5% increase, max you'll pay is 0.105 sBTC
+(define-read-only (calculate-max-price-with-slippage (current-price uint) (slippage-bps uint))
+    (let
+        (
+            ;; if the NFT costs 10 sBTC and you're okay with 5% more, we add 0.5 sBTC
+            ;; so your maximum becomes 10.5 sBTC, that becomes your safety limit
+            (slippage-amount (/ (* current-price slippage-bps) u10000))
+        )
+        ;; return price plus slippage tolerance
+        (ok (+ current-price slippage-amount))
+    )
 )
 
 ;; Get the total subscriptions on platform
@@ -1019,7 +1047,7 @@
             ;; look at it like opening a box that has another box in it so you have open the 
             ;; outside layer to see what's in
             (nft-owner (unwrap! (unwrap! (contract-call? .glamora-nft get-owner token-id) 
-                ERR-TRANSFER-FAILED) ERR-NOT-NFT-OWNER))
+            ERR-TRANSFER-FAILED) ERR-NOT-NFT-OWNER))
         )
         
         ;; VALIDATION CHECKS
@@ -1038,7 +1066,8 @@
             token-id 
             tx-sender 
             price) 
-            ERR-STORAGE-FAILED)
+            ERR-STORAGE-FAILED
+        )
         
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-nft-listings (+ (var-get total-nft-listings) u1))
@@ -1061,7 +1090,7 @@
 ;; the platform takes only 5% fee, the seller receives 95%
 ;; @params:
 ;; - token-id: the NFT ID to purchase
-(define-public (purchase-fashion-nft (token-id uint))
+(define-public (purchase-fashion-nft (token-id uint) (max-price uint))
     (let
         (
             ;; get listing details
@@ -1084,7 +1113,12 @@
         
         ;; ensure listing is still active
         (asserts! (get active listing-data) ERR-NFT-NOT-LISTED)
-        
+
+        ;; SLIPPAGE PROTECTION CHECK
+        ;; ensure the current price has not exceeded what the buyer is willing to pay
+        ;; this will protect buyers from price increases between seeing the listing and purchasing
+        (asserts! (<= sale-price max-price) ERR-PRICE-SLIPPAGE)
+
         ;; PROCESS SBTC PAYMENTS
         
         ;; transfer 95% to seller
@@ -1103,7 +1137,7 @@
             none) 
             ERR-SBTC-TRANSFER-FAILED)
         
-        ;; tRANSFER NFT TO BUYER
+        ;; TRANSFER NFT TO BUYER
         (unwrap! (contract-call? .glamora-nft transfer 
             token-id 
             seller 
@@ -1129,6 +1163,7 @@
             seller: seller,
             buyer: tx-sender,
             sale-price: sale-price,
+            max-price: max-price, 
             marketplace-fee: marketplace-fee,
             seller-received: seller-payout,
             purchased-at: stacks-block-height
