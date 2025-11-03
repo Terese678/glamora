@@ -2,20 +2,20 @@
 ;; title: main contract module
 
 ;; summary: glamora is a decentralized fashion social platform where creators share content and fashion 
-;; enthusiasts discover trends, with direct cryptocurrency tipping and secure data storage in storage.clar
+;; lovers discover trends, with direct cryptocurrency tipping and secure data storage in storage.clar
 
 ;; description: glamora is a vibrant fashion community where creativity meets direct support 
 ;; whether you're a fashion creator or fashion lover, this platform connects you with the global fashion world
 ;; 
 ;; For Fashion Creators: They join by creating a creator profile, then showcase their fashion expertise 
 ;; by posting photos and videos across 5 categories - Fashion Shows, Lookbooks, Tutorials, Behind-the-Scenes content,
-;; and Reviews. They can share your amazing outfits, styling tips, design processes, or fashion insights.
-;; They can also build their follower community and earn direct sBTC tips from fans who their work 
+;; and Reviews. They can share their amazing outfits, styling tips, design processes, or fashion insights.
+;; They can also build their follower community and earn direct sBTC tips from fans who like their work 
 ;; (you keep 95%, platform takes only 5%)
 ;;
-;; For Fashion Enthusiasts: They can sign up as a public user to dive into the fashion world without creating content,
+;; For Fashion Enthusiasts: They can sign up as a public user without creating content
 ;; they can follow their favorite creators, discover emerging fashion trends, explore amazing outfits 
-;; from shoes to accessories, and directly support creators they love by sending sBTC tips with personal messages
+;; from shoes to accessories, and directly support creators they've picked interests in by sending sBTC tips with personal messages
 ;; staying connected with the latest fashion styles and designs
 
 ;; Version 3.0
@@ -42,11 +42,19 @@
 (define-constant ERR-FOLLOW-FAILED (err u11))         ;; When follow operation fails
 (define-constant ERR-STORAGE-FAILED (err u12))        ;; Storage contract failed to process the request
 (define-constant ERR-UNAUTHORIZED (err u13))          ;; caller is not authorized to call a function
+(define-constant ERR-NFT-NOT-LISTED (err u18))        ;; if the NFT is not listed for sale 
+(define-constant ERR-NFT-ALREADY-LISTED (err u19))    ;; if the NFT is already listed
+(define-constant ERR-INVALID-PRICE (err u20))         ;; price must be greater than 0
+(define-constant ERR-BUYER-IS-SELLER (err u21))       ;; you cannot buy your own NFT
+(define-constant ERR-INSUFFICIENT-FUNDS (err u22))    ;; when buyer does not have enough sBTC
+(define-constant ERR-SBTC-TRANSFER-FAILED (err u23))  ;; triggers when sBTC transfer fails
+(define-constant ERR-NFT-TRANSFER-FAILED (err u24))   ;; when NFT transfer fails during purchase
+(define-constant ERR-NOT-NFT-OWNER (err u25))         ;; if the caller is not the owner of this NFT
 
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
 
-(define-constant ERR-INVALID-TIER (err u14))           ;; This when a user selects an invalid tier subscription 
+(define-constant ERR-INVALID-TIER (err u14))           ;; This happens when a user selects an invalid tier subscription 
 (define-constant ERR-SUBSCRIPTION-ACTIVE (err u15))    ;; When user already has active subscription
 (define-constant ERR-NO-SUBSCRIPTION (err u16))        ;; If the user has no active subscription  
 (define-constant ERR-SUBSCRIPTION-EXPIRED (err u17))   ;; When user's subscription has expired
@@ -69,13 +77,13 @@
 (define-constant VIP-SUBSCRIPTION-PRICE u6000000)     ;; 0.06 sBTC per month
 
 ;; NFT Collection Creation
-(define-constant COLLECTION-CREATION-FEE u5000000)     ;; 0.05 sBTC to create collection (pay one time)
+(define-constant COLLECTION-CREATION-FEE u5000000)     ;; 0.05 sBTC to create collection, pay once and keep creating
 
 ;; NFT Marketplace
 (define-constant MIN-LISTING-PRICE u1000000)           ;; 0.01 sBTC minimum listing price
 
 (define-constant SUBSCRIPTION-DURATION u4320)           ;; Subscription duration in blocks (approximately 30 days)
-                                                        ;; Stacks, 144 blocks/day 144 multiply by 30 = 4,320 blocks
+                                                        ;; Stacks, 144 blocks/day 144 multiplied by 30 = 4,320 blocks
 
 ;; Subscription tiers
 (define-constant TIER-BASIC u1)                        ;; Basic subscription tier
@@ -84,9 +92,9 @@
 
 ;; Content categories 
 ;; these are types of fashion content available on the platform 
-(define-constant CATEGORY-FASHION-SHOW u1)            ;; category 1 for runway parades with models in dazzling outfits
-(define-constant CATEGORY-LOOKBOOK u2)                ;; category 2 for awesome photo collections, photo album with nice style snapshots
-(define-constant CATEGORY-TUTORIAL u3)                ;; category 3 educational fashion videos how fashion is made, how to make dress 
+(define-constant CATEGORY-FASHION-SHOW u1)            ;; category 1 for runway parades with models wearing captivating outfits
+(define-constant CATEGORY-LOOKBOOK u2)                ;; category 2 for unique photo collections, photo album with nice style snapshots
+(define-constant CATEGORY-TUTORIAL u3)                ;; category 3 educational fashion videos showing how fashion is made, how to make dress etc 
 (define-constant CATEGORY-BEHIND-SCENES u4)           ;; category 4 showing how the fashionists do what they do 
 (define-constant CATEGORY-REVIEW u5)                  ;; category 5 talking about fashion clothes or accessories, product review
 
@@ -229,19 +237,20 @@
     (var-get storage-contract)
 )
 
-;; Get the total platform statistics all in one call
+;; Get the total platform statistics 
+;; this is the platform's dashboard, one function that shows all the data
 (define-read-only (get-platform-stats)
     {
-        total-users: (var-get total-users),
-        total-content: (var-get total-content),
-        next-content-id: (var-get next-content-id),
-        total-tips-sent: (var-get total-tips-sent),
-        platform-fees-earned: (var-get platform-fees-earned),
-        total-active-subscriptions: (var-get total-active-subscriptions), 
-        total-subscription-revenue: (var-get total-subscription-revenue), 
-        total-nft-listings: (var-get total-nft-listings),                   ;; total NFTs currently listed for sale
-        total-nft-sales: (var-get total-nft-sales),                         ;; total NFTs sold on the marketplace
-        marketplace-revenue: (var-get marketplace-revenue),                 ;; total sBTC earned from marketplace fees (5%)
+        total-users: (var-get total-users),                                ;; this is how many people have signed up, creators & fans
+        total-content: (var-get total-content),                            ;; here is every runway video, lookbook, tutorial, total posts 
+        next-content-id: (var-get next-content-id),                        ;; the ID that the next post will get. it starts at u1 and never repeats
+        total-tips-sent: (var-get total-tips-sent),                        ;; total number of sBTC tips sent
+        platform-fees-earned: (var-get platform-fees-earned),              ;; the 5% cut from tips & NFT sales
+        total-active-subscriptions: (var-get total-active-subscriptions),  ;; this is how many fans are paying monthly right now
+        total-subscription-revenue: (var-get total-subscription-revenue),  ;; total sBTC earned from Basic, Premium, VIP subscriptions
+        total-nft-listings: (var-get total-nft-listings),                  ;; total NFTs currently listed for sale
+        total-nft-sales: (var-get total-nft-sales),                        ;; total NFTs sold on the marketplace
+        marketplace-revenue: (var-get marketplace-revenue),                ;; total sBTC earned from marketplace fees (5%)
         payment-token: "sBTC",  ;; This shows that all money on the platform is in sBTC  (Stacked Bitcoin)
         all-amounts-in-satoshis: true  ;; Tells the user all numbers are in satoshis (100,000,000 sats = 1 sBTC)
     }
@@ -252,15 +261,36 @@
 ;;===============================================
 
 ;; Get total followers
-;; This function returns a user's follower count from storage.clar
-;; it's a function that takes a principal (user's wallet address) and returns the number of followers for that user
+;; the old version only checked for creator profiles which won't work for public users
+;; but this version checks both creator and public users which is safe for everyone
+;; I had to iterate because fans (public users) exist too, but they do not have followers
+;; creators see real count, fans see 0, strangers will get an error 
 (define-read-only (get-total-followers (user principal))
-    (match (contract-call? .storage get-creator-profile user) 
-    profile (ok (get follower-count profile)) 
-    ERR-PROFILE-NOT-FOUND)
+    (let
+        (
+            ;; let's try to find a creator profile
+            (creator-profile (contract-call? .storage get-creator-profile user))
+            
+            ;; and if no creator profile, try public user
+            (public-profile (contract-call? .storage get-public-user-profile user))
+        )
+        
+        ;; if it's a creator return their real follower count
+        (match creator-profile
+            profile (ok (get follower-count profile))
+            
+            ;; If not a creator, then check if it's a public user they have 0 followers
+            (match public-profile
+                profile (ok u0)
+                
+                ;; if no profile at all, return error
+                ERR-PROFILE-NOT-FOUND
+            )
+        )
+    )
 )
 
-;; Let's us look up a creator profile. It will fetch data from storage, this ensures modularity
+;; Let's us look up a creator profile. It will fetch data from storage
 (define-read-only (get-creator-profile (user principal)) 
     (contract-call? .storage get-creator-profile user)
 ) ;; it will asks storage.clar contract to show a user profile like their username, bio, using their wallet address a special ID
@@ -969,3 +999,184 @@
     )
 )
 
+;;===============================================
+;; NFT MARKETPLACE PUBLIC FUNCTIONS
+;;===============================================
+
+;; LIST FASHION NFT FOR SALE
+;; @desc: this function let's a user List an NFT for sale on the marketplace using sBTC
+;; and only the NFT owner is authorized to list their NFT
+;; @params:
+;; - token-id: the NFT ID to list
+;; - price: the sale price in sBTC 
+(define-public (list-fashion-nft (token-id uint) (price uint))
+    (let
+        (
+            ;; get current NFT owner to verify ownership
+            ;; here, we unwrap twice because get-owner returns data wrapped in two layers,
+            ;; the first layer checks if the function call worked ok or err
+            ;; the second layer checks if the NFT actually has an owner some or none
+            ;; look at it like opening a box that has another box in it so you have open the 
+            ;; outside layer to see what's in
+            (nft-owner (unwrap! (unwrap! (contract-call? .glamora-nft get-owner token-id) 
+                ERR-TRANSFER-FAILED) ERR-NOT-NFT-OWNER))
+        )
+        
+        ;; VALIDATION CHECKS
+        
+        ;; ensure caller is the NFT owner
+        (asserts! (is-eq tx-sender nft-owner) ERR-NOT-NFT-OWNER)
+        
+        ;; ensure NFT is not already listed
+        (asserts! (not (is-nft-listed token-id)) ERR-NFT-ALREADY-LISTED)
+        
+        ;; ensure that the price meets minimum requirement
+        (asserts! (is-valid-listing-price price) ERR-INVALID-PRICE)
+        
+        ;; CREATE LISTING IN STORAGE
+        (unwrap! (contract-call? .storage create-nft-listing 
+            token-id 
+            tx-sender 
+            price) 
+            ERR-STORAGE-FAILED)
+        
+        ;; UPDATE PLATFORM STATISTICS
+        (var-set total-nft-listings (+ (var-get total-nft-listings) u1))
+        
+        ;; LOG EVENT
+        (print {
+            event: "nft-listed",
+            token-id: token-id,
+            seller: tx-sender,
+            price: price,
+            listed-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
+;; PURCHASE FASHION NFT
+;; @desc: this function let's you buy a listed NFT using sBTC
+;; the platform takes only 5% fee, the seller receives 95%
+;; @params:
+;; - token-id: the NFT ID to purchase
+(define-public (purchase-fashion-nft (token-id uint))
+    (let
+        (
+            ;; get listing details
+            (listing-data (unwrap! (contract-call? .storage get-nft-listing token-id) 
+                ERR-NFT-NOT-LISTED))
+            
+            ;; extract listing information
+            (seller (get seller listing-data))
+            (sale-price (get price listing-data))
+            
+            ;; calculate fees and payouts
+            (marketplace-fee (calculate-marketplace-fee sale-price))
+            (seller-payout (- sale-price marketplace-fee))
+        )
+        
+        ;; VALIDATION CHECKS
+        
+        ;; prevent buying your own NFT
+        (asserts! (not (is-eq tx-sender seller)) ERR-BUYER-IS-SELLER)
+        
+        ;; ensure listing is still active
+        (asserts! (get active listing-data) ERR-NFT-NOT-LISTED)
+        
+        ;; PROCESS SBTC PAYMENTS
+        
+        ;; transfer 95% to seller
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            seller-payout 
+            tx-sender 
+            seller 
+            none) 
+            ERR-SBTC-TRANSFER-FAILED)
+        
+        ;; transfer 5% marketplace fee to contract
+        (unwrap! (contract-call? SBTC-CONTRACT transfer 
+            marketplace-fee 
+            tx-sender 
+            CONTRACT-ADDRESS 
+            none) 
+            ERR-SBTC-TRANSFER-FAILED)
+        
+        ;; tRANSFER NFT TO BUYER
+        (unwrap! (contract-call? .glamora-nft transfer 
+            token-id 
+            seller 
+            tx-sender) 
+            ERR-NFT-TRANSFER-FAILED)
+        
+        ;; COMPLETE SALE IN STORAGE
+        (unwrap! (contract-call? .storage complete-nft-sale 
+            token-id 
+            tx-sender 
+            sale-price) 
+            ERR-STORAGE-FAILED)
+        
+        ;; UPDATE PLATFORM STATISTICS
+        (var-set total-nft-sales (+ (var-get total-nft-sales) u1))
+        (var-set marketplace-revenue (+ (var-get marketplace-revenue) marketplace-fee))
+        (var-set total-nft-listings (- (var-get total-nft-listings) u1))
+        
+        ;; LOG EVENT
+        (print {
+            event: "nft-purchased",
+            token-id: token-id,
+            seller: seller,
+            buyer: tx-sender,
+            sale-price: sale-price,
+            marketplace-fee: marketplace-fee,
+            seller-received: seller-payout,
+            purchased-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
+;; UNLIST FASHION NFT
+;; @desc: this function will remove NFT from marketplace listing
+;; only the seller can unlist their NFT
+;; @params:
+;; - token-id: The NFT ID to unlist
+(define-public (unlist-fashion-nft (token-id uint))
+    (let
+        (
+            ;; get listing details
+            (listing-data (unwrap! (contract-call? .storage get-nft-listing token-id) 
+                ERR-NFT-NOT-LISTED))
+            
+            ;; extract seller address
+            (seller (get seller listing-data))
+        )
+        
+        ;; VALIDATION CHECKS
+        
+        ;; ensure caller is the seller
+        (asserts! (is-eq tx-sender seller) ERR-UNAUTHORIZED)
+        
+        ;; ensure listing is active
+        (asserts! (get active listing-data) ERR-NFT-NOT-LISTED)
+        
+        ;; REMOVE LISTING FROM STORAGE
+        (unwrap! (contract-call? .storage cancel-nft-listing token-id) 
+            ERR-STORAGE-FAILED)
+        
+        ;; UPDATE PLATFORM STATISTICS
+        (var-set total-nft-listings (- (var-get total-nft-listings) u1))
+        
+        ;; LOG EVENT
+        (print {
+            event: "nft-unlisted",
+            token-id: token-id,
+            seller: tx-sender,
+            unlisted-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)

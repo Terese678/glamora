@@ -1,11 +1,11 @@
 ;;=============================================
 ;; title: storage module, our data whare house contract
 
-;; summary: This module stores ALL the information for the fashion platform 
+;; summary: This module stores all the information for the fashion platform 
 ;; It keeps creator and public user profiles, content posts, tips, and follow relationships safe 
 
 ;; description: this contract is like a super-safe bank vault for data, it stores creator and public user profiles, 
-;; keeps all fashion posts and their details, it remembers who follows whotracks all tip transactions 
+;; keeps all fashion posts and their details, it remembers who follows who, tracks all tip transactions 
 ;; between fans and creators and only the "main contract" can write new data here
 
 ;; Version 3.0
@@ -18,7 +18,7 @@
 ;;===================================
 
 ;; ERROR CODES 
-(define-constant ERR-NOT-AUTHORIZED (err u100))         ;; ensures only main writes
+(define-constant ERR-NOT-AUTHORIZED (err u100))         ;; only the main contract can save data here
 (define-constant ERR-USER-NOT-FOUND (err u101))         ;; the user's profile can't be found anywhere
 (define-constant ERR-USERNAME-TAKEN (err u102))         ;; Someone has already picked that username 
 (define-constant ERR-PROFILE-EXISTS (err u103))         ;; User already created their profile before
