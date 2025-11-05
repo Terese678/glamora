@@ -672,10 +672,6 @@
     )
 )
 
-;;======================================
-;; NEW SUBSCRIPTION STORAGE FUNCTIONS
-;;=========================================
-
 ;; Create new subscription 
 ;; @desc - This function saves a new subscription when someone pays to follow a creator through main.clar
 ;; @params:
@@ -999,4 +995,110 @@
         (ok true)
     )
 )
+
+;;===============================================
+;; PROFILE UPDATE FUNCTIONS
+;;===============================================
+
+;; UPDATE CREATOR PROFILE
+;; @desc: This function lets creators update their display name and bio
+;; the username cannot be changed, it's permanent
+;; @params:
+;; - user: the creator's wallet address
+;; - new-display-name: updated display name
+;; - new-bio: updated bio text
+(define-public (update-creator-profile 
+    (user principal) 
+    (new-display-name (string-utf8 32)) 
+    (new-bio (string-utf8 256)))
+    (let
+        (
+            ;; get current profile data
+            (current-profile (unwrap! (map-get? creator-profiles user) ERR-USER-NOT-FOUND))
+        )
+        
+        ;; only authorized contract can update profiles
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; update profile keeping all other data the same
+        (map-set creator-profiles user
+            (merge current-profile {
+                display-name: new-display-name,
+                bio: new-bio
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+;; UPDATE PUBLIC USER PROFILE
+;; @desc: This function lets public users update their display name and bio
+;; username cannot be changed it's permanent
+;; @params:
+;; - user: the user's wallet address
+;; - new-display-name: updated display name
+;; - new-bio: updated bio text
+(define-public (update-public-user-profile 
+    (user principal) 
+    (new-display-name (string-utf8 32)) 
+    (new-bio (string-utf8 256)))
+    (let
+        (
+            ;; get current profile data
+            (current-profile (unwrap! (map-get? public-user-profiles user) ERR-USER-NOT-FOUND))
+        )
+        
+        ;; only the authorized contract can update profiles
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; update profile keeping all other data the same
+        (map-set public-user-profiles user
+            (merge current-profile {
+                display-name: new-display-name,
+                bio: new-bio
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+;; DELETE CONTENT
+;; @desc: this function marks content as deleted/inactive
+;; we don't actually erase blockchain data its impossible, but we mark it as deleted(one of the reasons i like blockchain)
+;; @params:
+;; - content-id: which post to delete
+;; - creator: who owns this post
+(define-public (delete-content (content-id uint) (creator principal))
+    (let
+        (
+            ;; get current content data
+            (content-data (unwrap! (map-get? content-registry content-id) ERR-INVALID-DATA))
+            
+            ;; get creator's profile to update their content count
+            (creator-profile (unwrap! (map-get? creator-profiles creator) ERR-USER-NOT-FOUND))
+        )
+        
+        ;; only authorized contract can delete
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; make sure the creator owns this content
+        (asserts! (is-eq creator (get creator content-data)) ERR-NOT-AUTHORIZED)
+        
+        ;; delete the content entry
+        (map-delete content-registry content-id)
+        
+        ;; decrease creator's total content count by 1
+        (map-set creator-profiles creator
+            (merge creator-profile {
+                total-content: (- (get total-content creator-profile) u1)
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+
 
