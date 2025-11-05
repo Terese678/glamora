@@ -140,6 +140,9 @@
 ;; Track total marketplace revenue from NFT sales
 (define-data-var marketplace-revenue uint u0)
 
+;; EMERGENCY CONTROL: this variable track if the platform is paused
+(define-data-var platform-paused bool false)
+
 ;; The storage-contract links to STORAGE.clar for secure data storage which is like a big warehouse 
 ;; where all the app data "profiles, posts, tips" is kept safe
 (define-data-var storage-contract principal .storage)
@@ -154,7 +157,7 @@
 
 ;; Get total users
 (define-read-only (get-total-users) 
-    (var-get total-users) ;; shows the number of users on the platform
+    (var-get total-users) ;; shows the number of users on the platform creators/fans
 )
 
 ;; Get total content
@@ -163,18 +166,21 @@
 ) ;; get total content tracks fashion pictures or videos people shared in the app, if there are 5 posts, it show the 5 posts
 
 ;; Get next content ID
+;; this will tell you what number that the next post will get like #42
 (define-read-only (get-next-content-id)
-    (var-get next-content-id) ;; this will grab the number that the next post will get
+    (var-get next-content-id) 
 )
 
 ;; Get total tips sent
+;; shows how many sBTC tips fans have sent to creators
 (define-read-only (get-total-tips)
-    (var-get total-tips-sent) ;; it grabs the total tips creators receieve
+    (var-get total-tips-sent) 
 )
 
 ;; Get platform fees earned
+;; gets the 5% cut from tips and sales platform earnings
 (define-read-only (get-platform-fees-earned) 
-    (var-get platform-fees-earned) ;; it goes into the apps bank to see how much it has earned
+    (var-get platform-fees-earned) 
 )
 
 ;;===============================================
@@ -182,31 +188,43 @@
 ;;===============================================
 
 ;; Get total NFT listings
+;; shows how many fashion NFTs are currently for sale
 (define-read-only (get-total-nft-listings)
     (var-get total-nft-listings)
 )
 
 ;; Get total NFT sales
+;; this fetches the total number of NFTs sold on Glamora
 (define-read-only (get-total-nft-sales)
     (var-get total-nft-sales)
 )
 
 ;; Get marketplace revenue
+;; gets the total sBTC earned from 5% marketplace fees
 (define-read-only (get-marketplace-revenue)
     (var-get marketplace-revenue)
 )
 
+;; CHECK IF PLATFORM IS PAUSED
+;; @desc: Simple function that returns true if platform is paused, false if active
+(define-read-only (is-platform-paused)
+    (var-get platform-paused)
+)
+
 ;; Get NFT listing details
+;; it pulls the full info about an NFT for sale price, seller, status
 (define-read-only (get-nft-listing (token-id uint))
     (contract-call? .storage get-nft-listing token-id)
 )
 
 ;; Check if NFT is listed
+;; if NFT is on the marketplace, it returns true and false if not
 (define-read-only (is-nft-listed (token-id uint))
     (is-some (contract-call? .storage get-nft-listing token-id))
 )
 
 ;; Get all active listings for a seller
+;; it shows all NFTs one creator currently has for sale
 (define-read-only (get-seller-listings (seller principal))
     (contract-call? .storage get-seller-active-listings seller)
 )
@@ -252,18 +270,19 @@
 
 ;; Get the total subscriptions on platform
 (define-read-only (get-total-active-subscriptions)
-    (var-get total-active-subscriptions)
+    (var-get total-active-subscriptions) 
+    ;; it will how how many fans are currently paying monthly to support creators
 )
 
 ;; Get total subscription revenue that's been earned by platform
 (define-read-only (get-total-subscription-revenue)
     (var-get total-subscription-revenue)
-)
+) ;; this will tell us the total sBTC the platform has earned from Basic, Premium, and VIP subscriptions
 
 ;; This shows us where the app stores all our fashion stuff
 (define-read-only (get-storage-contract) 
     (var-get storage-contract)
-)
+) ;; this is pointing to the storage contract, where profiles, posts, tips, and NFTs are kept secured
 
 ;; Get the total platform statistics 
 ;; this is the platform's dashboard, one function that shows all the data
@@ -279,6 +298,7 @@
         total-nft-listings: (var-get total-nft-listings),                  ;; total NFTs currently listed for sale
         total-nft-sales: (var-get total-nft-sales),                        ;; total NFTs sold on the marketplace
         marketplace-revenue: (var-get marketplace-revenue),                ;; total sBTC earned from marketplace fees (5%)
+        platform-paused: (var-get platform-paused),                        ;; this is true if platform is in emergency pause mode/false if active
         payment-token: "sBTC",  ;; This shows that all money on the platform is in sBTC  (Stacked Bitcoin)
         all-amounts-in-satoshis: true  ;; Tells the user all numbers are in satoshis (100,000,000 sats = 1 sBTC)
     }
@@ -323,7 +343,8 @@
     (contract-call? .storage get-creator-profile user)
 ) ;; it will asks storage.clar contract to show a user profile like their username, bio, using their wallet address a special ID
 
-;; Let's look up a public user profile
+;; get public user profile retrieves a public user profile
+;; username, display name, bio, and the date they joined
 (define-read-only (get-public-user-profile (user principal))
     (contract-call? .storage get-public-user-profile user)
 )
@@ -331,7 +352,7 @@
 ;; Let's retrieves the owner (principal) of a username from storage
 (define-read-only (get-username-owner (username (string-ascii 32)))
     (contract-call? .storage get-username-owner username)
-)
+) ;; it will reveal whose wallet is behind a username
 
 ;;===============================================
 ;; CONTENT LOOKUPS
@@ -408,7 +429,7 @@
 ;; NFT & COLLECTION LOOKUPS
 ;;===============================================
 
-;; @desc: This function bridges the main contract to the storage contract to fetch NFT metadata
+;; @desc: This function bridges the main contract with the storage contract to fetch NFT metadata
 ;; We call our storage contract to fetch the NFT metadata providing it a token id
 (define-read-only (get-nft-metadata (token-id uint))
     (contract-call? .storage get-nft-metadata token-id)
@@ -611,6 +632,71 @@
         (ok true)
     )
 )
+
+;;===============================================
+;; PROFILE UPDATE
+;;===============================================
+
+;; UPDATE CREATOR PROFILE
+;; @desc: this function lets creators update their display name and bio
+;; cannot change username it;s permanent
+;; @params:
+;; - new-display-name: your updated display name
+;; - new-bio: your updated bio
+(define-public (update-creator-profile 
+    (new-display-name (string-utf8 32)) 
+    (new-bio (string-utf8 256)))
+    (begin
+        ;; make sure platform is not paused or upadate won't work
+        (asserts! (not (var-get platform-paused)) ERR-UNAUTHORIZED)
+        
+        ;; make sure caller has a creator profile already
+        (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        
+        ;; update profile in storage
+        (unwrap! (contract-call? .storage update-creator-profile tx-sender new-display-name new-bio) ERR-STORAGE-FAILED)
+        
+        ;; Log the update
+        (print {
+            event: "creator-profile-updated",
+            user: tx-sender,
+            updated-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
+;; UPDATE PUBLIC USER PROFILE
+;; @desc: this function lets public users update their display name and bio
+;; Cannot change username it's permanent
+;; @params:
+;; - new-display-name: your updated display name
+;; - new-bio: here's your updated bio
+(define-public (update-public-user-profile 
+    (new-display-name (string-utf8 32)) 
+    (new-bio (string-utf8 256)))
+    (begin
+        ;; make sure platform is not paused
+        (asserts! (not (var-get platform-paused)) ERR-UNAUTHORIZED)
+        
+        ;; make sure caller has a public user profile
+        (asserts! (is-some (contract-call? .storage get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        
+        ;; update profile in storage
+        (unwrap! (contract-call? .storage update-public-user-profile tx-sender new-display-name new-bio) ERR-STORAGE-FAILED)
+        
+        ;; log the update
+        (print {
+            event: "public-profile-updated",
+            user: tx-sender,
+            updated-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
 ;; =====================================
 ;; CONTENT PUBLISHING
 ;; =====================================
@@ -696,6 +782,42 @@
     )
 )
 
+;; DELETE CONTENT
+;; @desc: This function lets creators delete their own posts 
+;; the tips already received are kept and can not be reversed
+;; @params:
+;; - content-id: the ID of the post you want to delete
+(define-public (delete-content (content-id uint))
+    (let
+        (
+            ;; get content details to verify ownership
+            (content-data (unwrap! (contract-call? .storage get-content-details content-id) ERR-CONTENT-NOT-FOUND))
+        )
+        
+        ;; make sure platform is not paused
+        (asserts! (not (var-get platform-paused)) ERR-UNAUTHORIZED)
+        
+        ;; make sure caller is the creator of this content
+        (asserts! (is-eq tx-sender (get creator content-data)) ERR-UNAUTHORIZED)
+        
+        ;; delete from storage
+        (unwrap! (contract-call? .storage delete-content content-id tx-sender) ERR-STORAGE-FAILED)
+        
+        ;; update platform statistics - decrease total content by 1
+        (var-set total-content (- (var-get total-content) u1))
+        
+        ;; Log the deletion
+        (print {
+            event: "content-deleted",
+            content-id: content-id,
+            creator: tx-sender,
+            deleted-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
 ;; =====================================
 ;; TIPPING SYSTEM  
 ;; =====================================
@@ -763,7 +885,6 @@
                 ) 
             ERR-TRANSFER-FAILED
         )
-
 
         ;; PLATFORM STATISTICS UPDATE
         ;; Increment total tips counter by 1
@@ -1215,3 +1336,103 @@
         (ok true)
     )
 )
+
+;;===============================================
+;; ADMIN PLATFORM MANAGEMENT
+;;===============================================
+
+;; WITHDRAW PLATFORM FEES
+;; @desc: This function lets the admin (contract owner) withdraw accumulated platform fees
+;; the platform earns 5% from tips and NFT sales, this function then transfers those earnings
+;; and only the contract deployer can call this function
+;; @params:
+;; - amount: this is how much sBTC to withdraw (in satoshis)
+;; - recipient: where to send the withdrawn fees
+(define-public (withdraw-platform-fees (amount uint) (recipient principal))
+    (let
+        (
+            ;; get the current platform balance by checking how much sBTC this contract holds
+            (platform-balance (unwrap! (contract-call? SBTC-CONTRACT get-balance CONTRACT-ADDRESS) ERR-TRANSFER-FAILED))
+        )
+        
+        ;; VALIDATION CHECKS
+        
+        ;; only the contract deployer can withdraw fees
+        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        
+        ;; make sure we are not trying to withdraw more than what we have
+        (asserts! (<= amount platform-balance) ERR-INSUFFICIENT-FUNDS)
+        
+        ;; TRANSFER FEES
+        ;; send the requested amount from contract to recipient using sBTC
+        (unwrap! (as-contract (contract-call? SBTC-CONTRACT transfer 
+            amount 
+            CONTRACT-ADDRESS 
+            recipient 
+            none)) 
+            ERR-TRANSFER-FAILED)
+        
+        ;; LOG EVENT
+        (print {
+            event: "platform-fees-withdrawn",
+            amount: amount,
+            recipient: recipient,
+            withdrawn-by: tx-sender,
+            withdrawn-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
+;; PAUSE PLATFORM
+;; @desc: this is the mergency stop button that freezes all platform activities when something goes wrong
+;; when the platform is paused, no posting, tipping, following, subscribing, or NFT trading
+;; and again only admin can pause
+(define-public (pause-platform)
+    (begin
+        ;; only contract deployer can pause
+        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        
+        ;; make sure platform is not already paused
+        (asserts! (not (var-get platform-paused)) ERR-INVALID-INPUT)
+        
+        ;; set the platform to paused state
+        (var-set platform-paused true)
+        
+        ;; log the pause event
+        (print {
+            event: "platform-paused",
+            paused-by: tx-sender,
+            paused-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
+;; UNPAUSE PLATFORM
+;; @desc: this function will resume normal platform operations after emergency pause
+;; only admin can unpause
+(define-public (unpause-platform)
+    (begin
+        ;; only contract deployer can unpause
+        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        
+        ;; make sure platform is actually paused
+        (asserts! (var-get platform-paused) ERR-INVALID-INPUT)
+        
+        ;; set platform back to active state
+        (var-set platform-paused false)
+        
+        ;; log the unpause event
+        (print {
+            event: "platform-unpaused",
+            unpaused-by: tx-sender,
+            unpaused-at: stacks-block-height
+        })
+        
+        (ok true)
+    )
+)
+
