@@ -15,6 +15,9 @@
 
 ;; author: "Timothy Terese Chimbiv"
 
+(define-constant ERR-NOT-AUTHORIZED (err u1)) ;; 
+(define-constant ERR-INVALID-AMOUNT (err u2)) ;; 
+
 ;;===============================================
 ;; FUNGIBLE TOKEN DEFINITION
 ;;===============================================
@@ -33,8 +36,16 @@
 ;; but for testing i need a way to give myself and test users tokens to work with
 ;; i just specify how many tokens to create and which wallet should receive them
 (define-public (mint (amount uint) (recipient principal))
-    ;; this built-in function creates the tokens and adds them to the recipient's balance
-    (ft-mint? sbtc amount recipient)
+    (begin
+        ;; ensure that amount is greater than zero
+        (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+        
+        ;; this built-in function creates the tokens and adds them to the recipient's balance
+        (try! (ft-mint? sbtc amount recipient))
+        
+        ;; return success explicitly
+        (ok true)
+    )
 )
 
 ;; TRANSFER TOKENS BETWEEN WALLETS
@@ -43,15 +54,18 @@
 ;; i made sure it matches the real sBTC contract's interface so I can swap them seamlessly later
 (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
     (begin
+        ;; ensure the that amount is greater than zero
+        (asserts! (> amount u0) ERR-INVALID-AMOUNT)
+        
         ;; first I check that the person calling this function is actually the sender
         ;; this prevents anyone from moving tokens they don't own
-        (asserts! (is-eq tx-sender sender) (err u1))
+        (asserts! (is-eq tx-sender sender) ERR-NOT-AUTHORIZED)
         
         ;; now I perform the actual transfer, moving tokens from sender to recipient
         ;; if this fails for any reason like insufficient balance, the whole transaction stops
         (try! (ft-transfer? sbtc amount sender recipient))
         
-        ;; everything worked so I return success
+        ;; everything worked so return success
         (ok true)
     )
 )
