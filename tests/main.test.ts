@@ -1,21 +1,51 @@
+import { describe, expect, it, beforeAll } from "vitest";
+import { Cl } from "@stacks/transactions";
 
-import { describe, expect, it } from "vitest";
+const simnet = (globalThis as any).simnet;
 
 const accounts = simnet.getAccounts();
-const address1 = accounts.get("wallet_1")!;
+const deployer = accounts.get("deployer")!;
+const wallet1 = accounts.get("wallet_1")!;
 
-/*
-  The test below is an example. To learn more, read the testing documentation here:
-  https://docs.hiro.so/stacks/clarinet-js-sdk
-*/
-
-describe("example tests", () => {
-  it("ensures simnet is well initalised", () => {
-    expect(simnet.blockHeight).toBeDefined();
+describe("DIAGNOSTIC - Find the Issue", () => {
+  
+  beforeAll(() => {
+    const mainContract = `${deployer}.main`;
+    
+    simnet.callPublicFn(
+      "storage",
+      "set-authorized-contract",
+      [Cl.principal(mainContract)],
+      deployer
+    );
+    
+    console.log("✅ Authorization complete");
   });
 
-  // it("shows an example", () => {
-  //   const { result } = simnet.callReadOnlyFn("counter", "get-counter", [], address1);
-  //   expect(result).toBeUint(0);
-  // });
+  it("Step 2: Call through main contract", () => {
+    // Debug what storage actually sees
+    const debugCall = simnet.callReadOnlyFn(  
+      "storage",
+      "get-authorized-contract",
+      [],
+      deployer
+    );
+    
+    console.log("\n📍 Debug - what storage sees:");
+    console.log("   Authorized:", debugCall.result);
+    console.log("   Deployer address:", deployer);
+    
+    const mainCall = simnet.callPublicFn(
+      "main",
+      "create-creator-profile",
+      [
+        Cl.stringAscii("maintest"),
+        Cl.stringUtf8("Main Test"),
+        Cl.stringUtf8("Bio")
+      ],
+      wallet1
+    );
+    
+    console.log("   Result:", mainCall.result);
+  });
 });

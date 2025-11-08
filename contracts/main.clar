@@ -53,7 +53,12 @@
 (define-constant ERR-PRICE-SLIPPAGE (err u26))        ;; when price exceeds buyer's maximum acceptable price
 
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
+;; the contract needs this to hold funds
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
+
+;; CONTRACT OWNER stores the wallet address of who deployed the contract
+;; this person has permissions to pause/unpause platform, withdraw fees
+(define-data-var contract-owner principal tx-sender)
 
 (define-constant ERR-INVALID-TIER (err u14))           ;; This happens when a user selects an invalid tier subscription 
 (define-constant ERR-SUBSCRIPTION-ACTIVE (err u15))    ;; When user already has active subscription
@@ -288,6 +293,7 @@
 ;; this is the platform's dashboard, one function that shows all the data
 (define-read-only (get-platform-stats)
     {
+        contract-owner: (var-get contract-owner),                          ;; deployer address
         total-users: (var-get total-users),                                ;; this is how many people have signed up, creators & fans
         total-content: (var-get total-content),                            ;; here is every runway video, lookbook, tutorial, total posts 
         next-content-id: (var-get next-content-id),                        ;; the ID that the next post will get. it starts at u1 and never repeats
@@ -302,6 +308,12 @@
         payment-token: "sBTC",  ;; This shows that all money on the platform is in sBTC  (Stacked Bitcoin)
         all-amounts-in-satoshis: true  ;; Tells the user all numbers are in satoshis (100,000,000 sats = 1 sBTC)
     }
+)
+
+;; CONTRACT OWNER
+;; @desc: it returns the wallet address that deployed the contract
+(define-read-only (get-contract-owner)
+    (var-get contract-owner)
 )
 
 ;;===============================================
@@ -578,7 +590,6 @@
         ;; Check user doesn't already have a profile 
         (asserts! (is-none (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-EXISTS) 
 
-        ;; SAVE THE DATA - by calling the storage contract
         (unwrap! (contract-call? .storage create-creator-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; UPDATE PLATFORM STATISTICS
@@ -615,7 +626,6 @@
         ;; Check user doesn't already have a public profile
         (asserts! (is-none (contract-call? .storage get-public-user-profile tx-sender)) ERR-PROFILE-EXISTS)
 
-        ;; Save the public user profile data by calling the storage contract
         (unwrap! (contract-call? .storage create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; Update platform statistics - now, one more user so increment by one
@@ -653,7 +663,6 @@
         ;; make sure caller has a creator profile already
         (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
-        ;; update profile in storage
         (unwrap! (contract-call? .storage update-creator-profile tx-sender new-display-name new-bio) ERR-STORAGE-FAILED)
         
         ;; Log the update
@@ -683,7 +692,6 @@
         ;; make sure caller has a public user profile
         (asserts! (is-some (contract-call? .storage get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
-        ;; update profile in storage
         (unwrap! (contract-call? .storage update-public-user-profile tx-sender new-display-name new-bio) ERR-STORAGE-FAILED)
         
         ;; log the update
@@ -742,8 +750,6 @@
         (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; SAVE CONTENT TO STORAGE
-        ;; I call the storage contract to permanently save all the post details
-        ;; This includes the title, description, category, and both the content hash and IPFS link
         (unwrap! (contract-call? .storage create-content 
                     content-id
                     tx-sender
@@ -854,7 +860,7 @@
         ;; Prevent users from tipping themselves
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
 
-        ;; ;; SBTC PAYMENT PROCESSING
+        ;; SBTC PAYMENT PROCESSING
 
         ;; Transfer 95% of tip to the content creator using sBTC
         (unwrap! (contract-call? SBTC-CONTRACT transfer 
@@ -877,12 +883,12 @@
         ;; DATA RECORDING
         ;; Save tip details permanently in storage contract
         (unwrap! (contract-call? .storage record-tip 
-                    content-id      ;; Which post was tipped
-                    tx-sender       ;; Who sent the tip
-                    creator         ;; Who received the tip
-                    tip-amount      ;; Total amount tipped
-                    message         ;; Message from tipper
-                ) 
+                content-id
+                tx-sender
+                creator
+                tip-amount
+                message
+            ) 
             ERR-TRANSFER-FAILED
         )
 
@@ -958,8 +964,9 @@
         (asserts! (contract-call? .storage is-following tx-sender user-to-unfollow) ERR-NOT-FOLLOWING)
 
         ;; If check passed and you're indeed following them we can proceed to remove the follow relationship
-        (unwrap! (contract-call? .storage remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
+       (unwrap! (contract-call? .storage remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
 
+        ;; log event
         (print {
             event: "user-unfollowed",
             follower: tx-sender,
@@ -1024,17 +1031,16 @@
             ERR-TRANSFER-FAILED
         )
         
-        ;; Call the storage contract save subscription details 
         (unwrap! (contract-call? .storage create-subscription
-                    tx-sender           ;; Who is subscribing
-                    creator             ;; Who they're subscribing to
-                    tier                ;; What tier they selected
-                    subscription-price  ;; How much they paid
-                    expiry-block        ;; When subscription expires
-                    TIER-BASIC
-                    TIER-PREMIUM
-                    TIER-VIP
-                ) 
+                tx-sender
+                creator
+                tier
+                subscription-price
+                expiry-block
+                TIER-BASIC
+                TIER-PREMIUM
+                TIER-VIP
+            ) 
             ERR-STORAGE-FAILED
         )
         
@@ -1081,12 +1087,12 @@
         
         ;; Remove the subscription from storage
         (unwrap! (contract-call? .storage cancel-subscription 
-                    tx-sender
-                    TIER-BASIC
-                    TIER-PREMIUM
-                    TIER-VIP
-                ) 
-            ERR-STORAGE-FAILED
+            tx-sender
+            TIER-BASIC
+            TIER-PREMIUM
+            TIER-VIP
+        ) 
+        ERR-STORAGE-FAILED
         )
         
         ;; Decrease the total active subscriptions count by 1 to reflect the cancellation,
@@ -1189,7 +1195,7 @@
             price) 
             ERR-STORAGE-FAILED
         )
-        
+
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-nft-listings (+ (var-get total-nft-listings) u1))
         
@@ -1216,7 +1222,7 @@
         (
             ;; get listing details
             (listing-data (unwrap! (contract-call? .storage get-nft-listing token-id) 
-                ERR-NFT-NOT-LISTED))
+            ERR-NFT-NOT-LISTED))
             
             ;; extract listing information
             (seller (get seller listing-data))
@@ -1270,7 +1276,8 @@
             token-id 
             tx-sender 
             sale-price) 
-            ERR-STORAGE-FAILED)
+            ERR-STORAGE-FAILED
+        )
         
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-nft-sales (+ (var-get total-nft-sales) u1))
@@ -1304,7 +1311,7 @@
         (
             ;; get listing details
             (listing-data (unwrap! (contract-call? .storage get-nft-listing token-id) 
-                ERR-NFT-NOT-LISTED))
+            ERR-NFT-NOT-LISTED))
             
             ;; extract seller address
             (seller (get seller listing-data))
@@ -1319,8 +1326,7 @@
         (asserts! (get active listing-data) ERR-NFT-NOT-LISTED)
         
         ;; REMOVE LISTING FROM STORAGE
-        (unwrap! (contract-call? .storage cancel-nft-listing token-id) 
-            ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .storage cancel-nft-listing token-id) ERR-STORAGE-FAILED)
         
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-nft-listings (- (var-get total-nft-listings) u1))
@@ -1342,7 +1348,7 @@
 ;;===============================================
 
 ;; WITHDRAW PLATFORM FEES
-;; @desc: This function lets the admin (contract owner) withdraw accumulated platform fees
+;; @desc: This function lets the contract owner withdraw accumulated platform fees
 ;; the platform earns 5% from tips and NFT sales, this function then transfers those earnings
 ;; and only the contract deployer can call this function
 ;; @params:
@@ -1357,8 +1363,10 @@
         
         ;; VALIDATION CHECKS
         
-        ;; only the contract deployer can withdraw fees
-        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        ;; only the contract owner can withdraw fees
+        ;; I changed from (is-eq tx-sender CONTRACT-ADDRESS)
+        ;; reason is, we want to check if the CALLER is the OWNER, not if caller is the contract
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-UNAUTHORIZED)
         
         ;; make sure we are not trying to withdraw more than what we have
         (asserts! (<= amount platform-balance) ERR-INSUFFICIENT-FUNDS)
@@ -1370,7 +1378,8 @@
             CONTRACT-ADDRESS 
             recipient 
             none)) 
-            ERR-TRANSFER-FAILED)
+            ERR-TRANSFER-FAILED
+        )
         
         ;; LOG EVENT
         (print {
@@ -1386,13 +1395,15 @@
 )
 
 ;; PAUSE PLATFORM
-;; @desc: this is the mergency stop button that freezes all platform activities when something goes wrong
-;; when the platform is paused, no posting, tipping, following, subscribing, or NFT trading
-;; and again only admin can pause
+;; @desc: this emergency stop button freezes all platform activities when something goes wrong
+;; when it's paused there will be no posting, tipping, following, subscribing, or even NFT trading allowed
+;; only the contract owner who's the deployer can pause the platform
 (define-public (pause-platform)
     (begin
-        ;; only contract deployer can pause
-        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        ;; check if caller is the contract owner (person who deployed it)
+        ;; I changed from (is-eq tx-sender CONTRACT-ADDRESS) 
+        ;; reason is, CONTRACT-ADDRESS is the contract itself, not the admin wallet
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-UNAUTHORIZED)
         
         ;; make sure platform is not already paused
         (asserts! (not (var-get platform-paused)) ERR-INVALID-INPUT)
@@ -1412,12 +1423,13 @@
 )
 
 ;; UNPAUSE PLATFORM
-;; @desc: this function will resume normal platform operations after emergency pause
-;; only admin can unpause
+;; @desc: Resume normal platform operations after emergency pause
+;; only the contract owner (deployer) can unpause
 (define-public (unpause-platform)
     (begin
-        ;; only contract deployer can unpause
-        (asserts! (is-eq tx-sender CONTRACT-ADDRESS) ERR-UNAUTHORIZED)
+        ;; the fix: check if caller is the contract owner
+        ;; changed from (is-eq tx-sender CONTRACT-ADDRESS) to contract owner
+        (asserts! (is-eq tx-sender (var-get contract-owner)) ERR-UNAUTHORIZED)
         
         ;; make sure platform is actually paused
         (asserts! (var-get platform-paused) ERR-INVALID-INPUT)
