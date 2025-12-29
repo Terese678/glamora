@@ -1109,5 +1109,22 @@
     )
 )
 
+;;===============================================
+;; CONTRACT INITIALIZATION
+;;===============================================
+
+;; @desc: this will executes once during deployment to initialize authorization
+;; it will prevent the problem where storage needs to authorize main,
+;; but main needs authorization to call storage functions
+;; @sets: authorized-contract and contract-admin to deployer's address
+;; @executes: one-time during contract deployment
+(begin
+    ;; Set deployer as initial authorized contract
+    (var-set authorized-contract tx-sender)
+    
+    ;; Set deployer as contract admin for permission management
+    (var-set contract-admin tx-sender)
+)
+
 
 

@@ -15,13 +15,14 @@ import {
   tupleCV,
   listCV,
   fetchCallReadOnlyFunction,
+  Cl,  
 } from '@stacks/transactions';
-import { STACKS_TESTNET } from '@stacks/network';
+import { STACKS_TESTNET } from '@stacks/network';  
 import { NETWORK_CONFIG, CONTRACT_CONFIG } from './contractConfig';
 
 // Get the network configuration
 export const getNetwork = () => {
-  return STACKS_TESTNET;
+  return STACKS_TESTNET;  
 };
 
 // Call a contract function (writable function)
@@ -52,6 +53,9 @@ export const cv = {
   list: listCV,
 };
 
+// Export Cl for more advanced Clarity value operations
+export { Cl };
+
 // Get contract principal string
 export const getContractPrincipal = () => {
   return `${CONTRACT_CONFIG.address}.${CONTRACT_CONFIG.name}`;
@@ -70,4 +74,3 @@ export const handleContractError = (error) => {
 
 // Export fetchCallReadOnlyFunction directly from the library
 export { fetchCallReadOnlyFunction };
-

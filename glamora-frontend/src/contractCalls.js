@@ -15,11 +15,14 @@ import {
   callContract,
   fetchCallReadOnlyFunction,
   cv,
+  Cl,
   getContractPrincipal,
   generateMockIPFSHash,
   handleContractError,
   getNetwork
 } from './stacksUtils';
+
+import { stringAsciiCV, stringUtf8CV, uintCV, AnchorMode, PostConditionMode } from '@stacks/transactions';
 
 // Register a new user on the platform
 export const registerUser = async (userSession, username, bio) => {
@@ -158,57 +161,136 @@ export const addReview = async (userSession, productId, rating, comment) => {
 
 /**
  * CREATE CREATOR PROFILE
- * this creates a new creator account on the blockchain
+ * Calls the main-v4 contract to create a new creator profile on the blockchain
+ * 
+ * @param {string} userAddress - The Stacks address of the user creating the profile
+ * @param {string} username - The creator's username (must be unique, ASCII only)
+ * @param {string} displayName - The creator's display name (can contain UTF-8 characters)
+ * @param {string} bio - The creator's biography/description
+ * @returns {Promise} - Resolves when wallet approval completes
  */
-export const createCreatorProfile = async (userAddress, creatorName, bio) => {
+export const createCreatorProfile = async (userAddress, username, displayName, bio) => {
   try {
-    console.log('Creating creator profile...');
-    console.log('Name:', creatorName);
+    // Log all input parameters for debugging
+    console.log('=== CREATING CREATOR PROFILE ===');
+    console.log('User Address:', userAddress);
+    console.log('Username:', username);
+    console.log('Display Name:', displayName);
+    console.log('Bio:', bio);
+
+    // Prepare function arguments in Clarity value format
+    // stringAsciiCV: for ASCII-only strings (usernames)
+    // stringUtf8CV: for UTF-8 strings (display names, bios with special characters)
+    const functionArgs = [
+      stringAsciiCV(username),      // arg0: username (ASCII only, permanent)
+      stringUtf8CV(displayName),    // arg1: display-name (UTF-8, can be updated)
+      stringUtf8CV(bio)             // arg2: bio (UTF-8, can be updated)
+    ];
+
+    // Log prepared arguments for verification
+    console.log('Function args prepared:', functionArgs);
+    console.log('Contract:', CONTRACT_CONFIG.address + '.main-v4');
+    console.log('Function: create-creator-profile');
+
+    // Import required Stacks dependencies dynamically
+    const { openContractCall } = await import('@stacks/connect');
+    const { STACKS_TESTNET } = await import('@stacks/network');
+
+    // Configure the transaction options
+    const txOptions = {
+      contractAddress: CONTRACT_CONFIG.address,  // Your deployer address
+      contractName: 'main-v3',                   // The contract name (must match deployed contract)
+      functionName: 'create-creator-profile',    // The public function to call
+      functionArgs: functionArgs,                // The prepared arguments array
+      network: STACKS_TESTNET,                   // Target network (testnet constant)
+      appDetails: {
+        name: 'Glamora',                         // App name shown in wallet
+        icon: window.location.origin + '/logo.png', // App icon shown in wallet
+      },
+      // Callback when user approves transaction in wallet
+      onFinish: (data) => {
+        console.log('=== WALLET APPROVED ===');
+        console.log('Transaction data received:', data);
+        console.log('Transaction ID:', data.txId);
+        return data;
+      },
+      // Callback when user cancels transaction in wallet
+      onCancel: () => {
+        console.log('=== TRANSACTION CANCELLED ===');
+        throw new Error('Transaction cancelled by user');
+      }
+    };
+
+    // Open the Leather wallet for user approval
+    console.log('=== OPENING WALLET ===');
+    const result = await openContractCall(txOptions);
+    return result;
+
+  } catch (error) {
+    // Log any errors that occur during the process
+    console.error('=== ERROR IN CREATE CREATOR PROFILE ===');
+    console.error('Error details:', error);
+    throw error; // Re-throw so calling function can handle it
+  }
+};
+
+/**
+ * CREATE PUBLIC USER PROFILE
+ * Creates a new public user profile on the blockchain
+ */
+export const createPublicUserProfile = async (userAddress, username, displayName, bio) => {
+  try {
+    console.log('Creating public user profile...');
+    console.log('Username:', username);
+    console.log('Display Name:', displayName);
     console.log('Bio:', bio);
     
-    // Import Stacks functions dynamically
     const { openContractCall } = await import('@stacks/connect');
+    const { AppConfig, UserSession } = await import('@stacks/auth');
     const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
     
-    // Prepare the data in blockchain format
+    const appConfig = new AppConfig(['store_write', 'publish_data']);
+    const userSession = new UserSession({ appConfig });
+    
     const functionArgs = [
-      cv.string(creatorName),  // Creator's display name
-      cv.string(bio)           // Creator's bio
+      Cl.stringAscii(username),
+      Cl.stringUtf8(displayName),
+      Cl.stringUtf8(bio)
     ];
     
-    // Set up the transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'create-creator-profile',  // Must match your Clarity contract
+      contractName: 'main-v4',
+      functionName: 'create-public-user-profile',
       functionArgs: functionArgs,
+      userSession: userSession,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
       anchorMode: AnchorMode.Any,
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
         console.log('Transaction broadcast:', data);
+        console.log('Transaction ID:', data.txId);
       },
       onCancel: () => {
         console.log('Transaction cancelled by user');
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
     
   } catch (error) {
-    console.error('Error creating creator profile:', error);
+    console.error('Error creating public user profile:', error);
     throw error;
   }
 };
 
-
-/**
- * TIP CREATOR
- * Sends cryptocurrency to a creator as a tip
- */
+// TIP CREATOR - Sends cryptocurrency to a creator as a tip
 export const tipCreator = async (userAddress, recipientAddress, amount) => {
   try {
     console.log('Sending tip...');
@@ -249,10 +331,7 @@ export const tipCreator = async (userAddress, recipientAddress, amount) => {
   }
 };
 
-/**
- * GET PROFILE
- * Reads a user's profile from the blockchain (READ-ONLY)
- */
+// GET PROFILE - Reads a user's profile from the blockchain (READ-ONLY)
 export const getProfile = async (userAddress) => {
   try {
     console.log('Fetching profile for:', userAddress);
@@ -285,221 +364,220 @@ export { CONTENT_CATEGORIES, SUBSCRIPTION_TIERS, MIN_TIP_AMOUNT };
 
 /**
  * GET CREATOR PROFILE
- * Reads a creator's profile from the blockchain (READ-ONLY)
- * This fetches the full creator profile including username, bio, follower count, etc.
+ * Fetches a creator profile from the storage contract
+ * 
+ * @param {string} userAddress - The Stacks address of the creator
+ * @returns {Promise<Object|null>} - The creator profile data or null if not found
  */
 export const getCreatorProfile = async (userAddress) => {
   try {
     console.log('Fetching creator profile for:', userAddress);
     
-    // Import required Stacks functions
-    const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { StacksTestnet } = await import('@stacks/network');
+    // Prepare function arguments with the user's principal address
+    const functionArgs = [Cl.principal(userAddress)];
     
-    // Prepare the function arguments - just the user's wallet address
-    const functionArgs = [
-      Cl.principal(userAddress)
-    ];
-    
-    // Set up the read-only call to the storage contract
-    // We call storage.get-creator-profile because that's where profiles are stored
+    // Configure the read-only function call options
     const options = {
-      network: new StacksTestnet(),
+      network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'storage',  // Calling the storage contract
-      functionName: 'get-creator-profile',  // Function name in storage.clar
+      contractName: 'storage',
+      functionName: 'get-creator-profile',
       functionArgs: functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
+      senderAddress: userAddress,
     };
     
-    // Fetch the profile data from the blockchain
-    const result = await callReadOnlyFunction(options);
+    // Execute the read-only function call
+    const result = await fetchCallReadOnlyFunction(options);
     
-    console.log('Creator profile result:', result);
+    // Log raw result to see its structure
+    console.log('Creator profile raw result:', result);
     
-    // Convert the result to JSON format
-    const profileData = cvToJSON(result);
+    // Check if no profile exists
+    if (result.type === 'none') {
+      console.log('No creator profile found (type: none)');
+      return null;
+    }
     
-    // Return the profile data if found
-    return profileData;
+    // Extract profile data - the data might be in result.value itself or result.value.value
+    if (result.type === 'some') {
+      // Try to access the tuple data - it could be in different places
+      const tupleData = result.value.data || result.value.value || result.value;
+      
+      console.log('Extracted tuple data:', tupleData);
+      console.log('Tuple data type:', typeof tupleData);
+      
+      // If tupleData is an object with profile fields, extract them
+      if (tupleData && typeof tupleData === 'object') {
+        // Try to extract the actual values - they might be nested in .value or .data properties
+        const convertedProfile = {
+          username: tupleData.username?.data || tupleData.username?.value || tupleData.username || '',
+          displayName: tupleData['display-name']?.data || tupleData['display-name']?.value || tupleData['display-name'] || '',
+          bio: tupleData.bio?.data || tupleData.bio?.value || tupleData.bio || '',
+          followerCount: Number(tupleData['follower-count']?.value || tupleData['follower-count'] || 0),
+          creatorScore: Number(tupleData['creator-score']?.value || tupleData['creator-score'] || 0),
+          totalEarnings: Number(tupleData['total-earnings']?.value || tupleData['total-earnings'] || 0),
+          creationDate: Number(tupleData['creation-date']?.value || tupleData['creation-date'] || 0),
+          profilePictureUrl: tupleData['profile-picture-url']?.data || tupleData['profile-picture-url']?.value || tupleData['profile-picture-url'] || '',
+          verified: tupleData.verified?.type === 'true' || tupleData.verified === true || false,
+        };
+        
+        console.log('Creator profile parsed:', convertedProfile);
+        return convertedProfile;
+      }
+    }
+    
+    console.log('Could not extract profile data');
+    return null;
     
   } catch (error) {
-    // Profile doesn't exist or other error occurred
-    console.log('No creator profile found:', error.message);
+    console.error('Error fetching creator profile:', error);
     return null;
   }
 };
 
 /**
  * GET PUBLIC USER PROFILE
- * Reads a public user's profile from the blockchain (READ-ONLY)
- * This fetches the full public user profile including username, bio, following count, etc.
+ * Fetches a public user profile from the storage contract
+ * 
+ * @param {string} userAddress - The Stacks address of the public user
+ * @returns {Promise<Object|null>} - The public user profile data or null if not found
  */
 export const getPublicUserProfile = async (userAddress) => {
   try {
     console.log('Fetching public user profile for:', userAddress);
     
-    // Import required Stacks functions
-    const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { StacksTestnet } = await import('@stacks/network');
+    // Prepare function arguments with the user's principal address
+    const functionArgs = [Cl.principal(userAddress)];
     
-    // Prepare the function arguments - just the user's wallet address
-    const functionArgs = [
-      Cl.principal(userAddress)
-    ];
-    
-    // Set up the read-only call to the storage contract
-    // We call storage.get-public-user-profile
+    // Configure the read-only function call options
     const options = {
-      network: new StacksTestnet(),
+      network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'storage',  // Calling the storage contract
-      functionName: 'get-public-user-profile',  // Function name in storage.clar
+      contractName: 'storage',
+      functionName: 'get-public-user-profile',
       functionArgs: functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
+      senderAddress: userAddress,
     };
     
-    // Fetch the profile data from the blockchain
-    const result = await callReadOnlyFunction(options);
+    // Execute the read-only function call
+    const result = await fetchCallReadOnlyFunction(options);
     
-    console.log('Public user profile result:', result);
+    // Log raw result to see its structure
+    console.log('Public user profile raw result:', result);
     
-    // Convert the result to JSON format
-    const profileData = cvToJSON(result);
+    // Check if no profile exists
+    if (result.type === 'none') {
+      console.log('No public user profile found (type: none)');
+      return null;
+    }
     
-    // Return the profile data if found
-    return profileData;
+    // Extract profile data - the data might be in result.value itself or result.value.value
+    if (result.type === 'some') {
+      // Try to access the tuple data - it could be in different places
+      const tupleData = result.value.data || result.value.value || result.value;
+      
+      console.log('Extracted tuple data:', tupleData);
+      console.log('Tuple data type:', typeof tupleData);
+      
+      // If tupleData is an object with profile fields, extract them
+      if (tupleData && typeof tupleData === 'object') {
+        // Try to extract the actual values - they might be nested in .value or .data properties
+        const convertedProfile = {
+          username: tupleData.username?.data || tupleData.username?.value || tupleData.username || '',
+          displayName: tupleData['display-name']?.data || tupleData['display-name']?.value || tupleData['display-name'] || '',
+          bio: tupleData.bio?.data || tupleData.bio?.value || tupleData.bio || '',
+          joinedDate: Number(tupleData['joined-date']?.value || tupleData['joined-date'] || 0),
+          profilePictureUrl: tupleData['profile-picture-url']?.data || tupleData['profile-picture-url']?.value || tupleData['profile-picture-url'] || '',
+        };
+        
+        console.log('Public user profile parsed:', convertedProfile);
+        return convertedProfile;
+      }
+    }
+    
+    console.log('Could not extract profile data');
+    return null;
     
   } catch (error) {
-    // Profile doesn't exist or other error occurred
-    console.log('No public user profile found:', error.message);
+    console.error('Error fetching public user profile:', error);
     return null;
   }
 };
 
 /**
- * CREATE PUBLIC USER PROFILE
- * Creates a new public user account on the blockchain
- * Public users can follow creators and send tips, but cannot publish content
- * 
- * @param {string} userAddress - The user's wallet address
- * @param {string} username - Unique username (permanent, cannot be changed)
- * @param {string} displayName - User's display name (can be updated later)
- * @param {string} bio - User's bio/description (can be updated later)
- */
-export const createPublicUserProfile = async (userAddress, username, displayName, bio) => {
-  try {
-    console.log('Creating public user profile...');
-    console.log('Username:', username);
-    console.log('Display Name:', displayName);
-    console.log('Bio:', bio);
-    
-    // Import Stacks functions dynamically
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, stringAsciiCV, stringUtf8CV } = await import('@stacks/transactions');
-    
-    // Prepare the data in blockchain format
-    // These become the parameters for the create-public-user-profile function in main.clar
-    const functionArgs = [
-      stringAsciiCV(username),      // User's unique username (ASCII string)
-      stringUtf8CV(displayName),    // User's display name (UTF-8 string)
-      stringUtf8CV(bio)             // User's bio (UTF-8 string)
-    ];
-    
-    // Set up the transaction options
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // Main contract
-      functionName: 'create-public-user-profile',  // Function in main.clar
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Public user profile transaction broadcast:', data);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled by user');
-      }
-    };
-    
-    // Open wallet popup and send transaction
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error creating public user profile:', error);
-    throw error;
-  }
-};
-
-/**
- * UPDATED PUBLISH CONTENT FUNCTION
+ * PUBLISH CONTENT FUNCTION
  * This publishContent function supports IPFS hash
- * 
- * @param {string} userAddress - Who is publishing
- * @param {string} title - Content title
- * @param {string} description - Content description
- * @param {string} contentHash - Hash of the content (for verification)
- * @param {string|null} ipfsHash - IPFS hash where image is stored (optional)
- * @param {number} category - Content category number (1-6)
  */
 export const publishContent = async (userAddress, title, description, contentHash, ipfsHash, category) => {
   try {
     console.log('Publishing content...');
     console.log('Title:', title);
-    console.log('Category:', category);
+    console.log('Description:', description);
+    console.log('Content Hash:', contentHash);
     console.log('IPFS Hash:', ipfsHash);
+    console.log('Category:', category);
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { 
       AnchorMode, 
       PostConditionMode, 
       stringUtf8CV, 
+      stringAsciiCV,    // ← Make sure this is imported!
       bufferCV, 
       someCV, 
       noneCV, 
       uintCV 
     } = await import('@stacks/transactions');
     
-    // Convert content hash from hex string to buffer
-    // The smart contract expects a buff 32 type
+    // Convert content hash from hex string to buffer (32 bytes)
     const hashBuffer = contentHash.startsWith('0x') ? contentHash.slice(2) : contentHash;
-    const contentHashBuffer = bufferCV(Buffer.from(hashBuffer, 'hex'));
     
-    // Prepare the IPFS hash parameter
-    // If ipfsHash is provided, wrap it in someCV(), otherwise use noneCV()
-    const ipfsHashParam = ipfsHash ? someCV(stringUtf8CV(ipfsHash)) : noneCV();
+    // Ensure hash is exactly 64 hex characters (32 bytes)
+    const paddedHash = hashBuffer.padEnd(64, '0');
     
-    // Prepare all the function arguments
+    // Convert to Uint8Array
+    const hashBytes = new Uint8Array(
+      paddedHash.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
+    );
+    
+    const contentHashBuffer = bufferCV(Buffer.from(hashBytes));
+    
+    // CRITICAL FIX: Use stringAsciiCV for IPFS hash (not stringUtf8CV)
+    // Contract expects: (optional (string-ascii 64))
+    const ipfsHashParam = ipfsHash ? someCV(stringAsciiCV(ipfsHash)) : noneCV();
+    
     const functionArgs = [
-      stringUtf8CV(title),        // Content title
-      stringUtf8CV(description),  // Content description
-      contentHashBuffer,          // Content hash as buffer
-      ipfsHashParam,              // Optional IPFS hash
-      uintCV(category)            // Category number
+      stringUtf8CV(title),           // param 1: title (string-utf8 64)
+      stringUtf8CV(description),     // param 2: description (string-utf8 256)
+      contentHashBuffer,             // param 3: content-hash (buff 32)
+      ipfsHashParam,                 // param 4: ipfs-hash (optional string-ascii 64)
+      uintCV(category)               // param 5: category (uint)
     ];
     
-    // Set up transaction
+    console.log('Function args prepared:', functionArgs);
+    
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // Main contract
-      functionName: 'publish-content',  // Function in main.clar
+      contractName: CONTRACT_CONFIG.name,
+      functionName: 'publish-content',
       functionArgs: functionArgs,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
       anchorMode: AnchorMode.Any,
       postConditionMode: PostConditionMode.Allow,
       onFinish: (data) => {
         console.log('Content published:', data);
+        console.log('Transaction ID:', data.txId);
       },
       onCancel: () => {
         console.log('Publishing cancelled');
       }
     };
     
-    // Open wallet and send transaction
+    console.log('Opening wallet for approval...');
     await openContractCall(txOptions);
     
     return { success: true };
@@ -510,42 +588,131 @@ export const publishContent = async (userAddress, title, description, contentHas
   }
 };
 
+/**
+ * GET CREATOR'S CONTENT
+ * Fetches all content published by a creator
+ */
+export const getCreatorContent = async (creatorAddress) => {
+  try {
+    console.log('Fetching content for creator:', creatorAddress);
+    
+    // First, get the total number of content items
+    const nextIdResult = await fetchCallReadOnlyFunction({
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: CONTRACT_CONFIG.name,
+      functionName: 'get-next-content-id',
+      functionArgs: [],
+      senderAddress: CONTRACT_CONFIG.address,
+    });
+    
+    const totalContent = Number(nextIdResult.value);
+    console.log('Total content items:', totalContent);
+    
+    if (totalContent === 0) {
+      return [];
+    }
+    
+    // Fetch each content item
+    const contentPromises = [];
+    for (let i = 0; i < totalContent; i++) {
+      contentPromises.push(
+        fetchCallReadOnlyFunction({
+          network: getNetwork(),
+          contractAddress: CONTRACT_CONFIG.address,
+          contractName: CONTRACT_CONFIG.name,
+          functionName: 'get-content-details',
+          functionArgs: [uintCV(i)],
+          senderAddress: CONTRACT_CONFIG.address,
+        })
+      );
+    }
+    
+    const contentResults = await Promise.all(contentPromises);
+    
+    // Filter content by creator and parse the data
+    const creatorContent = contentResults
+      .map((result, index) => {
+        if (!result) {
+          console.log(`Content ${index}: Result is null/undefined`);
+          return null;
+        }
+        
+        console.log(`Content ${index} full result:`, result);
+        console.log(`Content ${index} result type:`, result.type);
+        
+        if (result.type !== 'ok' && result.type !== 'some') {
+          console.log(`Content ${index}: Invalid result type`);
+          return null;
+        }
+        
+        const contentData = result.value.data || result.value;
+        
+        // Handle tuple structure
+        const actualData = contentData.type === 'tuple' ? contentData.value : contentData;
+        
+        console.log(`Content ${index} contentData FULL:`, contentData);
+        
+        // Debug: Log the creator address from content
+        console.log(`Content ${index} creator:`, actualData.creator);
+        console.log(`Content ${index} creator FULL:`, JSON.stringify(actualData.creator, null, 2));
+        console.log(`Content ${index} creator address:`, actualData.creator.value);
+        console.log(`Expected creator:`, creatorAddress);
+        console.log(`Match?`, actualData.creator.value === creatorAddress);
+        
+        // Check if this content belongs to the creator
+        if (actualData.creator.value !== creatorAddress) {
+          console.log(`Content ${index}: NOT a match, skipping`);
+          return null;
+        }
+        
+        console.log(`Content ${index}: MATCH! Adding to results`);
+        
+        return {
+          id: index,
+          title: actualData.title?.value || actualData.title?.data || 'Untitled',
+          description: actualData.description?.value || actualData.description?.data || 'No description',
+          ipfsHash: actualData['content-hash']?.value?.data || actualData['ipfs-hash']?.value?.data || null,
+          category: Number(actualData.category?.value || 0),
+          timestamp: Number(actualData['creation-date']?.value || 0),
+          creator: actualData.creator.value
+        };
+      })
+      .filter(item => item !== null);
+    
+    console.log('Creator content:', creatorContent);
+    return creatorContent;
+    
+  } catch (error) {
+    console.error('Error fetching creator content:', error);
+    return [];
+  }
+};
 // ============================================================
 // NFT MARKETPLACE FUNCTIONS 
 // ============================================================
 
-/**
- * LIST FASHION NFT FOR SALE
- * This function lets NFT owners list their NFTs on the marketplace
- * Only the owner can list their NFT
- * 
- * @param {uint} tokenId - The NFT ID to list
- * @param {number} priceInSTX - The sale price in STX (will be converted to micro-STX)
- */
+// LIST FASHION NFT FOR SALE
 export const listFashionNFT = async (tokenId, priceInSTX) => {
   try {
     console.log('Listing NFT for sale...');
     console.log('Token ID:', tokenId);
     console.log('Price:', priceInSTX, 'STX');
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
     
-    // Convert STX to micro-STX (1 STX = 1,000,000 micro-STX)
     const priceInMicroSTX = Math.floor(priceInSTX * 1000000);
     
-    // Prepare function arguments
     const functionArgs = [
-      uintCV(tokenId),              // NFT token ID
-      uintCV(priceInMicroSTX)       // Price in micro-STX
+      uintCV(tokenId),
+      uintCV(priceInMicroSTX)
     ];
     
-    // Set up transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'list-fashion-nft',
       functionArgs: functionArgs,
       anchorMode: AnchorMode.Any,
@@ -558,7 +725,6 @@ export const listFashionNFT = async (tokenId, priceInSTX) => {
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
@@ -569,38 +735,27 @@ export const listFashionNFT = async (tokenId, priceInSTX) => {
   }
 };
 
-/**
- * PURCHASE FASHION NFT
- * This function lets users buy listed NFTs
- * Platform takes 5% fee, seller gets 95%
- * 
- * @param {uint} tokenId - The NFT ID to purchase
- * @param {number} maxPriceInSTX - Maximum price willing to pay (slippage protection)
- */
+// PURCHASE FASHION NFT
 export const purchaseFashionNFT = async (tokenId, maxPriceInSTX) => {
   try {
     console.log('Purchasing NFT...');
     console.log('Token ID:', tokenId);
     console.log('Max Price:', maxPriceInSTX, 'STX');
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
     
-    // Convert STX to micro-STX
     const maxPriceInMicroSTX = Math.floor(maxPriceInSTX * 1000000);
     
-    // Prepare function arguments
     const functionArgs = [
-      uintCV(tokenId),                  // NFT token ID
-      uintCV(maxPriceInMicroSTX)        // Maximum acceptable price
+      uintCV(tokenId),
+      uintCV(maxPriceInMicroSTX)
     ];
     
-    // Set up transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'purchase-fashion-nft',
       functionArgs: functionArgs,
       anchorMode: AnchorMode.Any,
@@ -613,7 +768,6 @@ export const purchaseFashionNFT = async (tokenId, maxPriceInSTX) => {
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
@@ -624,32 +778,23 @@ export const purchaseFashionNFT = async (tokenId, maxPriceInSTX) => {
   }
 };
 
-/**
- * UNLIST FASHION NFT
- * This function removes an NFT from the marketplace
- * only the seller can unlist their NFT
- * 
- * @param {uint} tokenId - The NFT ID to unlist
- */
+// UNLIST FASHION NFT
 export const unlistFashionNFT = async (tokenId) => {
   try {
     console.log('Unlisting NFT...');
     console.log('Token ID:', tokenId);
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
     
-    // Prepare function arguments
     const functionArgs = [
-      uintCV(tokenId)  // NFT token ID
+      uintCV(tokenId)
     ];
     
-    // Set up transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'unlist-fashion-nft',
       functionArgs: functionArgs,
       anchorMode: AnchorMode.Any,
@@ -662,7 +807,6 @@ export const unlistFashionNFT = async (tokenId) => {
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
@@ -673,37 +817,27 @@ export const unlistFashionNFT = async (tokenId) => {
   }
 };
 
-/**
- * GET NFT LISTING
- * Fetch listing details for a specific NFT
- * Returns price, seller, active status
- * 
- * @param {uint} tokenId - The NFT ID to check
- */
+// GET NFT LISTING
 export const getNFTListing = async (tokenId) => {
   try {
     console.log('Fetching NFT listing for token:', tokenId);
     
-    // Import Stacks functions
     const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { StacksTestnet } = await import('@stacks/network');
+    const { STACKS_TESTNET } = await import('@stacks/network');
     
-    // Prepare function arguments
     const functionArgs = [
       Cl.uint(tokenId)
     ];
     
-    // Set up read-only call
     const options = {
-      network: new StacksTestnet(),
+      network: STACKS_TESTNET,
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'get-nft-listing',
       functionArgs: functionArgs,
       senderAddress: CONTRACT_CONFIG.address,
     };
     
-    // Fetch listing data
     const result = await callReadOnlyFunction(options);
     const listingData = cvToJSON(result);
     
@@ -716,29 +850,23 @@ export const getNFTListing = async (tokenId) => {
   }
 };
 
-/**
- * GET MARKETPLACE STATISTICS
- * Fetch overall marketplace stats (total listings, sales, revenue)
- */
+// GET MARKETPLACE STATISTICS
 export const getMarketplaceStats = async () => {
   try {
     console.log('Fetching marketplace statistics...');
     
-    // Import Stacks functions
     const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { StacksTestnet } = await import('@stacks/network');
+    const { STACKS_TESTNET } = await import('@stacks/network');
     
-    // Set up read-only call
     const options = {
-      network: new StacksTestnet(),
+      network: STACKS_TESTNET,
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'get-marketplace-stats',
       functionArgs: [],
       senderAddress: CONTRACT_CONFIG.address,
     };
     
-    // Fetch marketplace stats
     const result = await callReadOnlyFunction(options);
     const statsData = cvToJSON(result);
     
@@ -751,37 +879,26 @@ export const getMarketplaceStats = async () => {
   }
 };
 
-/**
- * CREATE NFT COLLECTION
- * Create a new fashion NFT collection
- * Costs 0.05 sBTC to create
- * 
- * @param {string} collectionName - Name of the collection
- * @param {string} description - Description of the collection
- * @param {number} maxEditions - Maximum number of NFTs in this collection
- */
+// CREATE NFT COLLECTION
 export const createNFTCollection = async (collectionName, description, maxEditions) => {
   try {
     console.log('Creating NFT collection...');
     console.log('Name:', collectionName);
     console.log('Max Editions:', maxEditions);
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { AnchorMode, PostConditionMode, stringUtf8CV, uintCV } = await import('@stacks/transactions');
     
-    // Prepare function arguments
     const functionArgs = [
-      stringUtf8CV(collectionName),     // Collection name
-      stringUtf8CV(description),        // Collection description
-      uintCV(maxEditions)               // Maximum editions
+      stringUtf8CV(collectionName),
+      stringUtf8CV(description),
+      uintCV(maxEditions)
     ];
     
-    // Set up transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,  // main contract
+      contractName: CONTRACT_CONFIG.name,
       functionName: 'create-nft-collection',
       functionArgs: functionArgs,
       anchorMode: AnchorMode.Any,
@@ -794,7 +911,6 @@ export const createNFTCollection = async (collectionName, description, maxEditio
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
@@ -805,24 +921,13 @@ export const createNFTCollection = async (collectionName, description, maxEditio
   }
 };
 
-/**
- * MINT FASHION NFT
- * Mint a new NFT in an existing collection
- * Only collection creator can mint
- * 
- * @param {uint} collectionId - Which collection to mint in
- * @param {string} recipientAddress - Who receives the NFT
- * @param {string} name - NFT name
- * @param {string} description - NFT description
- * @param {string} imageIpfsHash - IPFS hash of the image
- */
+// MINT FASHION NFT
 export const mintFashionNFT = async (collectionId, recipientAddress, name, description, imageIpfsHash) => {
   try {
     console.log('Minting NFT...');
     console.log('Collection ID:', collectionId);
     console.log('Name:', name);
     
-    // Import Stacks functions
     const { openContractCall } = await import('@stacks/connect');
     const { 
       AnchorMode, 
@@ -834,23 +939,21 @@ export const mintFashionNFT = async (collectionId, recipientAddress, name, descr
       noneCV 
     } = await import('@stacks/transactions');
     
-    // Prepare function arguments
     const functionArgs = [
-      uintCV(collectionId),                     // Collection ID
-      principalCV(recipientAddress),            // Recipient address
-      stringUtf8CV(name),                       // NFT name
-      stringUtf8CV(description),                // NFT description
-      stringAsciiCV(imageIpfsHash),             // IPFS hash for image
-      noneCV(),                                 // animation-ipfs-hash (optional, using none)
-      noneCV(),                                 // external-url (optional, using none)
-      noneCV()                                  // attributes-ipfs-hash (optional, using none)
+      uintCV(collectionId),
+      principalCV(recipientAddress),
+      stringUtf8CV(name),
+      stringUtf8CV(description),
+      stringAsciiCV(imageIpfsHash),
+      noneCV(),
+      noneCV(),
+      noneCV()
     ];
     
-    // Set up transaction
     const txOptions = {
       network: getNetwork(),
       contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'glamora-nft',  // NFT contract
+      contractName: 'glamora-nft',
       functionName: 'mint-fashion-nft',
       functionArgs: functionArgs,
       anchorMode: AnchorMode.Any,
@@ -863,7 +966,6 @@ export const mintFashionNFT = async (collectionId, recipientAddress, name, descr
       }
     };
     
-    // Open wallet and send transaction
     await openContractCall(txOptions);
     
     return { success: true };
@@ -873,3 +975,102 @@ export const mintFashionNFT = async (collectionId, recipientAddress, name, descr
     throw error;
   }
 };
+
+// UPDATE CREATOR PROFILE
+export const updateCreatorProfile = async (userAddress, displayName, bio) => {
+  try {
+    console.log('=== UPDATING CREATOR PROFILE ===');
+    console.log('User Address:', userAddress);
+    console.log('Display Name:', displayName);
+    console.log('Bio:', bio);
+    
+    const { openContractCall } = await import('@stacks/connect');
+    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
+    
+    const functionArgs = [
+      Cl.stringUtf8(displayName),
+      Cl.stringUtf8(bio)
+    ];
+    
+    console.log('Function args:', functionArgs);
+    
+    const txOptions = {
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'main-v4',
+      functionName: 'update-creator-profile',
+      functionArgs: functionArgs,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
+      anchorMode: AnchorMode.Any,
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => {
+        console.log('Profile Update Transaction SUCCESS:', data);
+        console.log('Transaction ID:', data.txId);
+      },
+      onCancel: () => {
+        console.log('Transaction cancelled');
+      }
+    };
+    
+    await openContractCall(txOptions);
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error updating creator profile:', error);
+    throw error;
+  }
+};
+
+// UPDATE PUBLIC USER PROFILE
+export const updatePublicUserProfile = async (userAddress, displayName, bio) => {
+  try {
+    console.log('=== UPDATING PUBLIC USER PROFILE ===');
+    console.log('User Address:', userAddress);
+    console.log('Display Name:', displayName);
+    console.log('Bio:', bio);
+    
+    const { openContractCall } = await import('@stacks/connect');
+    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
+    
+    const functionArgs = [
+      Cl.stringUtf8(displayName),
+      Cl.stringUtf8(bio)
+    ];
+    
+    console.log('Function args:', functionArgs);
+    
+    const txOptions = {
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'main-v4',
+      functionName: 'update-public-user-profile',
+      functionArgs: functionArgs,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
+      anchorMode: AnchorMode.Any,
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => {
+        console.log('Profile Update Transaction SUCCESS:', data);
+        console.log('Transaction ID:', data.txId);
+      },
+      onCancel: () => {
+        console.log('Transaction cancelled');
+      }
+    };
+    
+    await openContractCall(txOptions);
+    
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error updating public user profile:', error);
+    throw error;
+  }
+};
+

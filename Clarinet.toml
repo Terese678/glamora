@@ -8,6 +8,8 @@ requirements = []
 
 [contracts.sbtc-token]
 path = "contracts/sbtc-token.clar"
+clarity_version = 1
+epoch = 2.05
 
 [contracts.glamora-nft]
 path = 'contracts/glamora-nft.clar'
@@ -19,7 +21,7 @@ depends_on = ["storage", "sip-009"]
 path = 'contracts/main.clar'
 clarity_version = 3
 epoch = 3.0
-depends_on = ["storage", "glamora-nft", "sbtc-token"]
+depends_on = ["sip-009", "storage", "glamora-nft", "sbtc-token"]
 
 [contracts.sip-009]
 path = 'contracts/sip-009.clar'
