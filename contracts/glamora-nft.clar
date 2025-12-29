@@ -242,8 +242,8 @@
             (collection-id (var-get next-collection-id))
         )
 
-        ;; Make sure only authorized people can create collections
-        (asserts! (is-authorized-caller) ERR-NOT-AUTHORIZED)
+        ;; Ensure only authorized contract can create collections
+        (asserts! (is-eq contract-caller (var-get authorized-caller)) ERR-NOT-AUTHORIZED)
 
         ;; Make sure the collection name is valid
         (asserts! (is-valid-collection-name collection-name) ERR-INVALID-COLLECTION-NAME)

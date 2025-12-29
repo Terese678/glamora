@@ -2,16 +2,22 @@
 ;; title: sbtc-token
 ;; version: 3.0
 
-;; summary: Mock sBTC Token, a testing tool for local development
+;; title: sbtc-token
+;; version: 3.0
 
-;; description: This is a mock sBTC token contract I created for testing Glamora locally on my computer.
-;; it works exactly like the real sBTC token you can transfer it between wallets, check balances, 
-;; and use it for payments, but the tokens have no real value and only exist in my development environment.
-;; I built this so I can test all the tipping, subscription, and NFT marketplace features without needing
-;; to deploy to testnet or spend real money. The contract follows the SIP-010 fungible token standard,
-;; which means it has the same interface as the actual sBTC contract. 
-;; When I'm ready to launch Glamora for real users, I will cahnge this mock contract address for the real sBTC contract address,
-;; and everything will work the same way but with actual Bitcoin-backed tokens.
+;; summary: Mock sBTC Token for Testnet Development
+
+;; description: this is a mock sBTC token contract deployed on Stacks testnet for testing Glamora.
+;; It works exactly like the real sBTC token - you can transfer it between wallets, check balances, 
+;; and use it for payments, but the tokens have no real value and only exist for testing purposes.
+;; This allows testing of all tipping, subscription, and NFT marketplace features on testnet
+;; without needing real Bitcoin-backed tokens. The contract follows the SIP-010 fungible token standard,
+;; which means it has the same interface as the actual sBTC contract.
+;; When Glamora launches on mainnet, this mock contract address will be replaced with the real 
+;; sBTC contract address, and everything will work the same way but with actual Bitcoin-backed tokens.
+;;
+;; Deployed on: Stacks Testnet
+;; Contract Address: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ.sbtc-token
 
 ;; author: "Timothy Terese Chimbiv"
 

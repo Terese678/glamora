@@ -1,16 +1,17 @@
 // This is the Main Application File for Glamora
-// its the heart of glamora it brings all components together
-
+// it manages wallet connection, user profiles (creator/public), content publishing, 
+// NFT marketplace, and tipping system on Stacks blockchain with sBTC
 import IpfsUploader from './IpfsUploader';
 
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import WalletConnect from './WalletConnect';
+import Profile from './Profile';
 import * as contractCalls from './contractCalls';
 
 function App() {
-  // State variables - these store information that changes as users interact
-  // use it to keep track of what's happening in the app
+  // State variables: they store information that changes as users interact
+  // its used to keep track of what's happening in the app
   
   const [userAddress, setUserAddress] = useState(null); // Stores the connected wallet address
   const [currentView, setCurrentView] = useState('home'); // Which page the user is viewing
@@ -25,6 +26,8 @@ function App() {
   const [username, setUsername] = useState(''); // For public user username
   const [displayName, setDisplayName] = useState(''); // For public user display name
   const [bio, setBio] = useState('');
+  const [creatorContent, setCreatorContent] = useState([]);
+  const [loadingContent, setLoadingContent] = useState(false);
   const [contentTitle, setContentTitle] = useState('');
   const [contentDescription, setContentDescription] = useState('');
   const [contentCategory, setContentCategory] = useState('Fashion');
@@ -98,6 +101,13 @@ function App() {
     );
   };
 
+  // Handle profile updates from Profile component
+  // This function receives updated profile data from the Profile page
+  // and updates the app's state so changes appear everywhere
+  const handleProfileUpdate = (updatedProfile) => {
+    setUserProfile(updatedProfile);
+  };
+
   // Create a go back function
   const goBack = () => {
     window.history.back();
@@ -106,7 +116,7 @@ function App() {
   // This function runs whenever a wallet connects
   // It receives the full user data object from WalletConnect
   const handleWalletConnect = async (userData) => {
-    if (userData && userData.profile) {
+    if (userData && userData.profile && userData.profile.stxAddress) {
       const address = userData.profile.stxAddress.testnet;
       setUserAddress(address);
       await loadUserProfile(address);
@@ -119,121 +129,238 @@ function App() {
     }
   };
 
-  // Load the user's profile from the blockchain
-  // This now checks BOTH creator and public user profiles
-  const loadUserProfile = async (address) => {
-    try {
-      setLoading(true);
-      
-      // First, try to load as a creator profile
-      const creatorProfile = await contractCalls.getCreatorProfile(address);
-      
-      if (creatorProfile) {
-        // Found a creator profile
-        setUserProfile(creatorProfile);
-        setIsCreator(true);
-        return;
-      }
-      
-      // If not a creator, try to load as a public user
-      const publicUserProfile = await contractCalls.getPublicUserProfile(address);
-      
-      if (publicUserProfile) {
-        // Found a public user profile
-        setUserProfile(publicUserProfile);
-        setIsCreator(false);
-        return;
-      }
-      
-      // No profile found at all
-      setUserProfile(null);
+// Load the user's profile from the blockchain
+// This function checks both creator and public user profiles
+// It properly validates that a profile exists before setting state
+const loadUserProfile = async (address) => {
+  try {
+    setLoading(true);
+    
+    // First, try to load as a creator profile
+    const creatorProfile = await contractCalls.getCreatorProfile(address);
+    
+    console.log('Creator profile check result:', creatorProfile);
+
+  // Check if it's a VALID creator profile (check for any non-empty property)
+  if (creatorProfile && typeof creatorProfile === 'object' && Object.keys(creatorProfile).length > 0 && (creatorProfile.username || creatorProfile.displayName || creatorProfile.bio)) {
+    console.log('Found valid creator profile');
+    console.log('Profile data:', creatorProfile);
+    setUserProfile(creatorProfile);
+    setIsCreator(true);
+    loadCreatorContent(address);
+    return;
+  }
+    
+    console.log('No creator profile, checking public user...');
+    
+    const publicProfile = await contractCalls.getPublicUserProfile(address);
+    console.log("Public user profile check result:", publicProfile);
+
+    if (publicProfile && typeof publicProfile === 'object' && Object.keys(publicProfile).length > 0) {  
+      console.log("Public user profile found!");
+      setUserProfile(publicProfile);
       setIsCreator(false);
-      
-    } catch (error) {
-      console.log('No profile found yet');
-      setUserProfile(null);
-      setIsCreator(false);
-    } finally {
-      setLoading(false);
+      return;  
     }
-  };
+    
+    // No profile found at all
+    console.log('No profile found - user needs to create one');
+    setUserProfile(null);
+    setIsCreator(false);
+    
+  } catch (error) {
+    console.error('Error loading profile:', error);
+    setUserProfile(null);
+    setIsCreator(false);
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Load creator's published content
+const loadCreatorContent = async (address) => {
+  if (!address) return;
+  
+  try {
+    setLoadingContent(true);
+    console.log('Loading content for creator:', address);
+    const content = await contractCalls.getCreatorContent(address);
+    console.log('Content loaded:', content);
+    setCreatorContent(content);
+  } catch (error) {
+    console.error('Error loading content:', error);
+    setCreatorContent([]);
+  } finally {
+    setLoadingContent(false);
+  }
+};
 
   // Create a creator profile when the form is submitted
-  const handleCreateCreatorProfile = async (e) => {
-    e.preventDefault(); // Stops the page from refreshing
-    
-    if (!userAddress) {
-      setMessage('Please connect your wallet first');
-      return;
-    }
+const handleCreateCreatorProfile = async (e) => {
+  e.preventDefault(); // Stops the page from refreshing
+  
+  if (!userAddress) {
+    setMessage('Please connect your wallet first');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setMessage('Creating your creator profile...');
+  try {
+    setLoading(true);
+    setMessage('Creating your creator profile...');
+    
+    // Call the smart contract to create the profile
+    // Creator profiles need: username (creator name), display name, and bio
+    await contractCalls.createCreatorProfile(
+      userAddress,
+      creatorName, // This becomes the username in the contract
+      creatorName, // This becomes the display name (same as username for creators)
+      bio
+    );
+    
+    setMessage(' Profile transaction submitted! Waiting for blockchain confirmation...');
+    
+    // Poll for profile confirmation with better timing
+    let attempts = 0;
+    const maxAttempts = 20; // Try for 100 seconds (20 attempts × 5 seconds each)
+    
+    const checkProfile = setInterval(async () => {
+      attempts++;
+      console.log(`Checking for creator profile... Attempt ${attempts}/${maxAttempts}`);
       
-      // Call the smart contract to create the profile
-      // Creator profiles need: username (creator name) and bio
-      const result = await contractCalls.createCreatorProfile(
-        userAddress,
-        creatorName, // This becomes the username in the contract
-        creatorName, // This becomes the display name (same as username for creators)
-        bio
-      );
-      
-      setMessage('Creator profile created successfully! Check your wallet for the transaction.');
-      
-      // Refresh the profile after creation
-      setTimeout(() => loadUserProfile(userAddress), 5000); // Wait 5 seconds for blockchain to update
-      
-      // Clear the form
-      setCreatorName('');
-      setBio('');
-      setProfileType(null); // Reset profile type selection
-    } catch (error) {
-      setMessage('Error creating profile: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        // Try to fetch the newly created profile from the blockchain
+        const profile = await contractCalls.getCreatorProfile(userAddress);
+        
+        if (profile && profile.type !== 'none') {
+          // Profile found! Stop checking and update the UI
+          clearInterval(checkProfile);
+          setUserProfile(profile);
+          setIsCreator(true);
+          setMessage('Creator profile created successfully! Welcome to Glamora!');
+          setLoading(false);
+          
+          // Clear the form fields
+          setCreatorName('');
+          setBio('');
+          setProfileType(null);
+          
+          // Auto-navigate to home after 2 seconds
+          setTimeout(() => {
+            navigateTo('home', true);
+            setMessage(''); // Clear message after navigation
+          }, 2000);
+          
+        } else if (attempts >= maxAttempts) {
+          // Max attempts reached, but profile might still be processing
+          clearInterval(checkProfile);
+          setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
+          
+          // Auto-refresh the page after 3 seconds
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          // Still waiting... update message with countdown
+          const secondsLeft = (maxAttempts - attempts) * 5;
+          setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+        }
+      } catch (error) {
+        console.log('Error checking profile:', error);
+        // Don't stop polling on errors, just continue
+      }
+    }, 5000); // Check every 5 seconds
+    
+  } catch (error) {
+    // Handle any errors that occur during profile creation
+    console.error('Error creating profile:', error);
+    setMessage('Error creating profile: ' + error.message);
+    setLoading(false);
+  }
+};
 
   // Create a public user profile when the form is submitted
-  const handleCreatePublicUserProfile = async (e) => {
-    e.preventDefault(); // Stops the page from refreshing
-    
-    if (!userAddress) {
-      setMessage('Please connect your wallet first');
-      return;
-    }
+const handleCreatePublicUserProfile = async (e) => {
+  e.preventDefault(); // Stops the page from refreshing
+  
+  if (!userAddress) {
+    setMessage('Please connect your wallet first');
+    return;
+  }
 
-    try {
-      setLoading(true);
-      setMessage('Creating your public user profile...');
+  try {
+    setLoading(true);
+    setMessage('Creating your public user profile...');
+    
+    // Call the smart contract to create the public user profile
+    // Public users need: username, display name, and bio
+    const result = await contractCalls.createPublicUserProfile(
+      userAddress,
+      username,
+      displayName,
+      bio
+    );
+    
+    setMessage('Profile transaction submitted! Waiting for blockchain confirmation...');
+    
+    // Poll for profile confirmation with better timing
+    let attempts = 0;
+    const maxAttempts = 20; // Try for 100 seconds
+    
+    const checkProfile = setInterval(async () => {
+      attempts++;
+      console.log(`Checking for public user profile... Attempt ${attempts}/${maxAttempts}`);
       
-      // Call the smart contract to create the public user profile
-      // Public users need: username, display name, and bio
-      const result = await contractCalls.createPublicUserProfile(
-        userAddress,
-        username,
-        displayName,
-        bio
-      );
-      
-      setMessage('Public user profile created successfully! Check your wallet for the transaction.');
-      
-      // Refresh the profile after creation
-      setTimeout(() => loadUserProfile(userAddress), 5000); // Wait 5 seconds for blockchain to update
-      
-      // Clear the form
-      setUsername('');
-      setDisplayName('');
-      setBio('');
-      setProfileType(null); // Reset profile type selection
-    } catch (error) {
-      setMessage('Error creating profile: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+      try {
+        // Try to fetch the newly created profile from the blockchain
+        const profile = await contractCalls.getPublicUserProfile(userAddress);
+        
+        if (profile && profile.type !== 'none') {
+          //Profile found! Stop checking and update the UI
+          clearInterval(checkProfile);
+          setUserProfile(profile);
+          setIsCreator(false);
+          setMessage('Public user profile created successfully! Welcome to Glamora!');
+          setLoading(false);
+          
+          // Clear the form fields
+          setUsername('');
+          setDisplayName('');
+          setBio('');
+          setProfileType(null);
+          
+          // Auto-navigate to home after 2 seconds
+          setTimeout(() => {
+            navigateTo('home', true);
+            setMessage('');
+          }, 2000);
+          
+        } else if (attempts >= maxAttempts) {
+          //  Max attempts reached
+          clearInterval(checkProfile);
+          setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
+          
+          // Auto-refresh the page after 3 seconds
+          setTimeout(() => {
+            window.location.reload();
+          }, 3000);
+        } else {
+          // Still waiting... update message with countdown
+          const secondsLeft = (maxAttempts - attempts) * 5;
+          setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+        }
+      } catch (error) {
+        console.log('Error checking profile:', error);
+        // Don't stop polling on errors, just continue
+      }
+    }, 5000); // Check every 5 seconds
+    
+  } catch (error) {
+    // Handle any errors that occur during profile creation
+    console.error('Error creating profile:', error);
+    setMessage(' Error creating profile: ' + error.message);
+    setLoading(false);
+  }
+};
 
   // Publish new fashion content
   // Now supports IPFS hash for storing images
@@ -513,8 +640,15 @@ function App() {
       {/* Navigation Menu */}
       <nav className="navigation">
         <button onClick={() => navigateTo('home', true)}>Home</button>
-        <button onClick={() => navigateTo('profile', true)}>My Profile</button>
-        <button onClick={() => navigateTo('create')}>Create</button>
+        {userAddress && userProfile && (
+          <button onClick={() => navigateTo('profile', true)}>My Profile</button>
+        )}
+        {userAddress && !userProfile && (
+          <button onClick={() => navigateTo('profile', false)}>Create Profile</button>
+        )}
+        {userAddress && userProfile && userProfile.type !== 'none' && isCreator && (
+          <button onClick={() => navigateTo('create')}>Publish Content</button>
+        )}
         <button onClick={() => navigateTo('marketplace')}>Marketplace</button>
         <button onClick={() => navigateTo('tip')}>Send Tip</button>
       </nav>
@@ -556,38 +690,26 @@ function App() {
           </div>
         )}
 
-        {/* PROFILE VIEW */}
-        {currentView === 'profile' && (
+        {/* PROFILE VIEW - For users with existing profiles */}
+        {currentView === 'profile' && userProfile && (
+          <Profile 
+            userAddress={userAddress}
+            userProfile={userProfile}
+            isCreator={isCreator}
+            onProfileUpdate={handleProfileUpdate}
+            creatorContent={creatorContent}
+            loadingContent={loadingContent}
+          />
+        )}
+
+        {/* PROFILE CREATION VIEW - For users without profiles */}
+        {currentView === 'profile' && !userProfile && (
           <div className="view">
             <h2>My Profile</h2>
             
             {!userAddress ? (
               <p>Please connect your wallet to view your profile</p>
-            ) : userProfile ? (
-              // User already has a profile - show profile info
-              <div className="profile-info">
-                {isCreator ? (
-                  // Display creator profile
-                  <div>
-                    <h3>Creator Profile</h3>
-                    <p><strong>Name:</strong> {userProfile.name}</p>
-                    <p><strong>Bio:</strong> {userProfile.bio}</p>
-                    <p><strong>Followers:</strong> {userProfile.followers || 0}</p>
-                    <p><strong>Total Tips Received:</strong> {(userProfile.totalTips || 0) / 1000000} sBTC</p>
-                  </div>
-                ) : (
-                  // Display public user profile
-                  <div>
-                    <h3>Public User Profile</h3>
-                    <p><strong>Username:</strong> {userProfile.username}</p>
-                    <p><strong>Display Name:</strong> {userProfile.displayName}</p>
-                    <p><strong>Bio:</strong> {userProfile.bio}</p>
-                    <p><strong>Following:</strong> {userProfile.following || 0}</p>
-                  </div>
-                )}
-              </div>
             ) : (
-              // No profile exists - show profile type selection and signup forms
               <div className="signup-container">
                 
                 {/* Step 1: Choose profile type */}
@@ -753,7 +875,7 @@ function App() {
             )}
           </div>
         )}
-
+        
         {/* CREATE CONTENT VIEW */}
         {currentView === 'create' && (
           <div className="view">
@@ -1200,7 +1322,6 @@ function App() {
       {/* Footer */}
       <footer className="app-footer">
         <p>Glamora - Built on Stacks with Clarity</p>
-        <p>For Nathaniel</p>
       </footer>
     </div>
   );
