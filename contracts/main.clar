@@ -27,46 +27,69 @@
 ;; Constants
 ;;===============================
 
-;; ERROR CODES - these contants will tell us when soemthing goes wrong with any input information
+;; ERROR CODES - these constants will tell us when something goes wrong with any input information;
 
-(define-constant ERR-INVALID-INPUT (err u1))          ;; happens when user gave us bad or wrong information
-(define-constant ERR-USERNAME-TAKEN (err u2))         ;; Someone already has taken that username  
-(define-constant ERR-PROFILE-EXISTS (err u3))         ;; this User has already created a profile
-(define-constant ERR-PROFILE-NOT-FOUND (err u4))      ;; user's profile can't be found
-(define-constant ERR-CONTENT-NOT-FOUND (err u5))      ;; content post can't be found
-(define-constant ERR-TRANSFER-FAILED (err u6))        ;; sBTC payment didn't work
-(define-constant ERR-ALREADY-FOLLOWING (err u7))      ;; Already following this person
-(define-constant ERR-CANNOT-FOLLOW-SELF (err u8))     ;; Can't follow yourself, it is not allowed
-(define-constant ERR-NOT-FOLLOWING (err u9))          ;; error if trying to unfollow someone you're not following
-(define-constant ERR-UNFOLLOW-FAILED (err u10))       ;; When unfollow operation fails
-(define-constant ERR-FOLLOW-FAILED (err u11))         ;; When follow operation fails
-(define-constant ERR-STORAGE-FAILED (err u12))        ;; Storage contract failed to process the request
-(define-constant ERR-UNAUTHORIZED (err u13))          ;; caller is not authorized to call a function
+(define-constant ERR-INVALID-INPUT (err u301))          ;; happens when user gave us bad or wrong information
+(define-constant ERR-USERNAME-TAKEN (err u302))         ;; Someone already has taken that username  
+(define-constant ERR-PROFILE-EXISTS (err u303))         ;; this User has already created a profile
+(define-constant ERR-PROFILE-NOT-FOUND (err u304))      ;; user's profile can't be found
+(define-constant ERR-CONTENT-NOT-FOUND (err u305))      ;; content post can't be found
+(define-constant ERR-TRANSFER-FAILED (err u306))        ;; sBTC payment didn't work
+(define-constant ERR-ALREADY-FOLLOWING (err u307))      ;; Already following this person
+(define-constant ERR-CANNOT-FOLLOW-SELF (err u308))     ;; Can't follow yourself, it is not allowed
+(define-constant ERR-NOT-FOLLOWING (err u309))          ;; error if trying to unfollow someone you're not following
+(define-constant ERR-UNFOLLOW-FAILED (err u310))       ;; When unfollow operation fails
+(define-constant ERR-FOLLOW-FAILED (err u311))         ;; When follow operation fails
+(define-constant ERR-STORAGE-FAILED (err u312))        ;; Storage contract failed to process the request
+(define-constant ERR-UNAUTHORIZED (err u313))          ;; caller is not authorized to call a function
+(define-constant ERR-INVALID-TIER (err u314))           ;; This when a user selects an invalid tier subscription 
+(define-constant ERR-SUBSCRIPTION-ACTIVE (err u315))    ;; When user already has active subscription
+(define-constant ERR-NO-SUBSCRIPTION (err u316))        ;; If the user has no active subscription  
+(define-constant ERR-SUBSCRIPTION-EXPIRED (err u317))   ;; When user's subscription has expired
+(define-constant ERR-INVALID-AMOUNT (err u318))        ;; error when tip or payment amount doesn't meet minimum requirements
+(define-constant ERR-SUBSCRIPTION-CHECK-FAILED (err u318))
 
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
+;; it creates a contract principal that can properly receive tokens
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
-
-(define-constant ERR-INVALID-TIER (err u14))           ;; This when a user selects an invalid tier subscription 
-(define-constant ERR-SUBSCRIPTION-ACTIVE (err u15))    ;; When user already has active subscription
-(define-constant ERR-NO-SUBSCRIPTION (err u16))        ;; If the user has no active subscription  
-(define-constant ERR-SUBSCRIPTION-EXPIRED (err u17))   ;; When user's subscription has expired
 
 ;; Platform fees
 (define-constant PLATFORM-TIP-PERCENTAGE u5)          ;; platform keeps 5% of tips received from creators
 (define-constant MARKETPLACE-FEE-PERCENTAGE u5)       ;; Marketplace fee percentage (5% platform fee on NFT sales)
 
-;; sBTC token contract, local mock for testing
-(define-constant SBTC-CONTRACT .sbtc-token) 
+(define-constant STORAGE-CONTRACT .storage-v2)
 
-;;===============================================
-;; PAYMENT AMOUNTS (in micro-sBTC, 1 sBTC = 100,000,000 micro-sBTC)
-;;===============================================
+;; PAYMENT TOKEN CONTRACTS
+;; These reference our deployed mock token contracts on testnet for dual-payment system
 
-(define-constant MIN-TIP-AMOUNT u100000)              ;; 0.001 sBTC 
+;; Mock sBTC token contract enables Bitcoin-based tips and subscriptions users who believe in Bitcoin 
+;; can pay with this (volatile but potentially appreciating)
+(define-constant SBTC-CONTRACT .sbtc-token)
 
+;; Mock USDCx token contract also enables stable dollar payments users who need price stability 
+;; can pay with this ($1 USD = 1 USDCx, no volatility)
+;; perfect for Nigerian creators who can't afford 30-40% currency swings
+(define-constant USDCX-CONTRACT .usdcx-token)
+
+;; This will represent which payment token the user can chose
+(define-constant TOKEN-SBTC u1)      ;; sBTC 
+(define-constant TOKEN-USDCX u2)     ;; USDCx (stable $1 USD)
+
+;; each token has a different minimum tip, this serves different types of supporters
+;; supporters who believe in Bitcoin can tip 0.001 sBTC (~$100) while regular fans tip 0.50 USDCx ($0.50)
+;; we have this because USDCx doesn't fluctuate like sBTC, so a $5 tip stays worth $5 instead of changing value
+(define-constant MIN-TIP-SBTC u100000)        ;; 0.001 sBTC minimum tip (~$100)
+(define-constant MIN-TIP-USDCX u500000)       ;; 0.50 USDCx minimum tip ($0.50) 
+
+;; sBTC subscription prices
 (define-constant BASIC-SUBSCRIPTION-PRICE u2000000)    ;; 0.02 sBTC per month
 (define-constant PREMIUM-SUBSCRIPTION-PRICE u5000000) ;; 0.05 sBTC per month
 (define-constant VIP-SUBSCRIPTION-PRICE u6000000)     ;; 0.06 sBTC per month
+
+;; stable dollar alternative for USDCx subscription prices 
+(define-constant BASIC-SUBSCRIPTION-PRICE-USDCX u5000000)    ;; 5.00 USDCx per month ($5)
+(define-constant PREMIUM-SUBSCRIPTION-PRICE-USDCX u10000000) ;; 10.00 USDCx per month ($10)
+(define-constant VIP-SUBSCRIPTION-PRICE-USDCX u15000000)     ;; 15.00 USDCx per month ($15)
 
 ;; NFT Collection Creation
 (define-constant COLLECTION-CREATION-FEE u5000000)     ;; 0.05 sBTC to create collection (pay one time)
@@ -125,15 +148,15 @@
 ;; Track total NFT listings on the marketplace
 (define-data-var total-nft-listings uint u0)
 
-;; Track total NFT sales completed
+;; this is to track total NFT sales completed
 (define-data-var total-nft-sales uint u0)
 
-;; Track total marketplace revenue from NFT sales
+;; it track total marketplace revenue from NFT sales
 (define-data-var marketplace-revenue uint u0)
 
 ;; The storage-contract links to STORAGE.clar for secure data storage which is like a big warehouse 
 ;; where all the app data "profiles, posts, tips" is kept safe
-(define-data-var storage-contract principal 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage)
+(define-data-var storage-contract principal 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2)
 
 ;;===========================
 ;; Read-only Functions 
@@ -188,18 +211,20 @@
 )
 
 ;; Get NFT listing details
-(define-read-only (get-nft-listing (token-id uint))
-    (contract-call? .storage get-nft-listing token-id)
+(define-public (get-nft-listing (token-id uint))
+   (ok (contract-call? STORAGE-CONTRACT get-nft-listing token-id))
 )
 
 ;; Check if NFT is listed
-(define-read-only (is-nft-listed (token-id uint))
-    (is-some (contract-call? .storage get-nft-listing token-id))
+(define-public (is-nft-listed (token-id uint))
+    (ok (is-some (contract-call? STORAGE-CONTRACT get-nft-listing token-id)))
 )
 
 ;; Get all active listings for a seller
-(define-read-only (get-seller-listings (seller principal))
-    (contract-call? .storage get-seller-active-listings seller)
+;; Returns: (response (list of active NFT listings) uint)
+;; This function retrieves all NFTs currently listed for sale by a specific seller from the storage contract
+(define-public (get-seller-listings (seller principal))
+    (ok (contract-call? STORAGE-CONTRACT get-seller-active-listings seller))
 )
 
 ;; Get marketplace statistics
@@ -251,28 +276,34 @@
 ;; USER & PROFILE LOOKUPS
 ;;===============================================
 
-;; Get total followers
-;; This function returns a user's follower count from storage.clar
-;; it's a function that takes a principal (user's wallet address) and returns the number of followers for that user
-(define-read-only (get-total-followers (user principal))
-    (match (contract-call? .storage get-creator-profile user) 
-    profile (ok (get follower-count profile)) 
-    ERR-PROFILE-NOT-FOUND)
+;; Get total followers for a user
+;; Returns: (response uint uint) - the follower count or an error
+;; This function retrieves the follower count from a creator's profile in the storage contract
+(define-public (get-total-followers (user principal))
+    (match (contract-call? STORAGE-CONTRACT get-creator-profile user) 
+        profile (ok (get follower-count profile)) 
+        (err ERR-PROFILE-NOT-FOUND))
 )
 
 ;; Let's us look up a creator profile. It will fetch data from storage, this ensures modularity
-(define-read-only (get-creator-profile (user principal)) 
-    (contract-call? .storage get-creator-profile user)
-) ;; it will asks storage.clar contract to show a user profile like their username, bio, using their wallet address a special ID
+;; Returns: (response (optional creator-profile) uint)
+;; It asks the storage.clar contract to show a user profile like their username, bio, using their wallet address as a special ID
+(define-public (get-creator-profile (user principal)) 
+    (ok (contract-call? STORAGE-CONTRACT get-creator-profile user))
+)
 
 ;; Let's look up a public user profile
-(define-read-only (get-public-user-profile (user principal))
-    (contract-call? .storage get-public-user-profile user)
+;; Returns: (response (optional public-user-profile) uint)
+;; This retrieves the public profile information for any user from the storage contract
+(define-public (get-public-user-profile (user principal))
+    (ok (contract-call? STORAGE-CONTRACT get-public-user-profile user))
 )
 
 ;; Let's retrieves the owner (principal) of a username from storage
-(define-read-only (get-username-owner (username (string-ascii 32)))
-    (contract-call? .storage get-username-owner username)
+;; Returns: (response (optional principal) uint)
+;; This looks up which wallet address owns a specific username
+(define-public (get-username-owner (username (string-ascii 32)))
+    (ok (contract-call? STORAGE-CONTRACT get-username-owner username))
 )
 
 ;;===============================================
@@ -280,29 +311,37 @@
 ;;===============================================
 
 ;; Let's check out the details of a picture or video
-(define-read-only (get-content-details (content-id uint))
-    (contract-call? .storage get-content-details content-id)
-) ;; this asks Storage.clar for info about a posts like its title, creator, or category using its ID number like #3
+;; Returns: (response (optional content-record) uint)
+;; This asks Storage.clar for info about a post like its title, creator, or category using its ID number like #3
+(define-public (get-content-details (content-id uint))
+    (ok (contract-call? STORAGE-CONTRACT get-content-details content-id))
+)
 
 ;; Let's look at the details of a money tip someone sent for a post
-(define-read-only (get-tip-details (content-id uint) (tipper principal))
-    (contract-call? .storage get-tip-history content-id tipper)
-) ;; it will ask our Storage.clar for info about a tip like how much was sent or the message
-;; for a specific post and tipper by wallet address
+;; Returns: (response (optional tip-record) uint)
+;; This asks our Storage.clar for info about a tip like how much Bitcoin or stablecoin was sent, 
+;; and any nice message the tipper included. We find it by matching the post ID and the tipper's wallet address
+(define-public (get-tip-details (content-id uint) (tipper principal))
+    (ok (contract-call? STORAGE-CONTRACT get-tip-history content-id tipper))
+)
 
 ;;===============================================
 ;; SOCIAL FOLLOWING LOOKUPS
 ;;===============================================
 
 ;; Let's see if one person is following the other on the platform
-(define-read-only (is-user-following (follower principal) (following principal)) 
-    (contract-call? .storage is-following follower following)
-) ;; it will go to the storage and check if one user by their wallet address is following another, 
-;; like checking if two people are buddies in the app
+;; Returns (response bool uint)
+;; This checks in storage if one user (by their wallet address) is following another user,
+;; like checking if two people are friends or connected in the app
+(define-public (is-user-following (follower principal) (following principal)) 
+    (ok (contract-call? STORAGE-CONTRACT is-following follower following))
+)
 
 ;; This will get our follow records from storage
-(define-read-only (get-follow-record (follower principal) (following principal))
-    (contract-call? .storage get-follow-record follower following)
+;; Returns: (response (optional follow-record) uint)
+;; Retrieves the complete follow relationship data between two users
+(define-public (get-follow-record (follower principal) (following principal))
+    (ok (contract-call? STORAGE-CONTRACT get-follow-record follower following))
 )
 
 ;;===============================================
@@ -311,16 +350,18 @@
 
 ;; Get the user's subscription details
 ;; we have to call the storage contract to retrieve the subscription details 
-(define-read-only (get-user-subscription (user principal))
-    (contract-call? .storage get-user-subscription user)
+(define-public (get-user-subscription (user principal))
+    (ok (contract-call? STORAGE-CONTRACT get-user-subscription user))
 )
 
-;; @des: check if "subscriber" currently has a valid (non-expired) subscription to the "specified creator"
+;; @desc: check if "subscriber" currently has a valid (non-expired) subscription to the "specified creator"
+;; Returns: (response bool uint)
+;; This checks if a user has an active, non-expired subscription to a specific creator
 ;; @params:
-;; - subscriber => principal
-;; - creator   => principal
-(define-read-only (has-active-subscription (subscriber principal) (creator principal))
-    (match (contract-call? .storage get-user-subscription subscriber)
+;; - subscriber => principal (the user who might be subscribed)
+;; - creator   => principal (the creator they might be subscribed to)
+(define-public (has-active-subscription (subscriber principal) (creator principal))
+    (ok (match (contract-call? STORAGE-CONTRACT get-user-subscription subscriber)
         subscription-data 
             ;; Check if subscription exists, it is for this creator, and has not expired yet
             (and 
@@ -328,7 +369,7 @@
                 (is-subscription-active (get expiry-block subscription-data)) ;; Check if subscription has not expired yet
             )
         false ;; the none branch returns false when no subscription is found
-    )
+    ))
 )
 
 ;; Get all subscription tier prices and duration in one call
@@ -342,8 +383,8 @@
 )
 
 ;; Get the creator's subscription statistics
-(define-read-only (get-creator-subscription-stats (creator principal))
-    (contract-call? .storage get-creator-subscription-stats creator)
+(define-public (get-creator-subscription-stats (creator principal))
+    (ok (contract-call? STORAGE-CONTRACT get-creator-subscription-stats creator))
 )
 
 ;;===============================================
@@ -352,13 +393,13 @@
 
 ;; @desc: This function bridges the main contract to the storage contract to fetch NFT metadata
 ;; We call our storage contract to fetch the NFT metadata providing it a token id
-(define-read-only (get-nft-metadata (token-id uint))
-    (contract-call? .storage get-nft-metadata token-id)
+(define-public (get-nft-metadata (token-id uint))
+    (ok (contract-call? STORAGE-CONTRACT get-nft-metadata token-id))
 )
 
 ;; Let's look up the details about a fashion collection
-(define-read-only (get-collections-details (collection-id uint))
-    (contract-call? .storage get-collection-data collection-id)
+(define-public (get-collections-details (collection-id uint))
+    (ok (contract-call? STORAGE-CONTRACT get-collection-data collection-id))
 ) ;; this function will ask storage.clar for info about a collection like its name, 
 ;; creator, description using its ID number like #1, #2, #3
 
@@ -416,8 +457,8 @@
     ;; I check both the creator profile map AND the public user profile map
     ;; and if the user has either one they're considered registered
     ;; The 'or' means if EITHER check returns true, the whole function returns true
-    (or (is-some (contract-call? .storage get-creator-profile user))
-    (is-some (contract-call? .storage get-public-user-profile user)))
+    (or (is-some (contract-call? STORAGE-CONTRACT get-creator-profile user))
+    (is-some (contract-call? STORAGE-CONTRACT get-public-user-profile user)))
 )
 
 ;; Calculates how much platform fee to take from a tip (5% of total tip amount)
@@ -466,6 +507,23 @@
     )
 )
 
+;; This is Glamora USDCx tier pricing, stable dollar alternative for fashion creator subscriptions
+;; sBTC prices fluctuate with Bitcoin (expensive for most users), but USDCx stays stable at $5-$15
+;; This dual-token approach lets fans choose: stability (USDCx) or Bitcoin exposure (sBTC)
+;; Returns the monthly cost in USDCx based on tier (u1=Basic $5, u2=Premium $10, u3=VIP $15)
+(define-private (get-tier-price-usdcx (tier uint))
+    (if (is-eq tier TIER-BASIC)
+        (ok BASIC-SUBSCRIPTION-PRICE-USDCX)           ;; 5.00 USDCx
+        (if (is-eq tier TIER-PREMIUM) 
+            (ok PREMIUM-SUBSCRIPTION-PRICE-USDCX)    ;; 10.00 USDCx
+            (if (is-eq tier TIER-VIP)
+                (ok VIP-SUBSCRIPTION-PRICE-USDCX)    ;; 15.00 USDCx
+                ERR-INVALID-TIER
+            )
+        )
+    )
+)
+
 ;; Check if subscription is currently active (not expired)
 (define-private (is-subscription-active (expiry-block uint))
     (> expiry-block stacks-block-height)
@@ -494,13 +552,13 @@
         )
         
         ;; Check the username is not already taken by another user
-        (asserts! (is-none (contract-call? .storage get-username-owner username)) ERR-USERNAME-TAKEN) 
+        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-username-owner username)) ERR-USERNAME-TAKEN) 
 
         ;; Check user doesn't already have a profile 
-        (asserts! (is-none (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-EXISTS) 
+        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-EXISTS) 
 
         ;; SAVE THE DATA - by calling the storage contract
-        (unwrap! (contract-call? .storage create-creator-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? STORAGE-CONTRACT create-creator-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-users (+ current-users u1))
@@ -531,13 +589,13 @@
         )
 
         ;; Check the username is not already taken by another user
-        (asserts! (is-none (contract-call? .storage get-username-owner username)) ERR-USERNAME-TAKEN) 
+        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-username-owner username)) ERR-USERNAME-TAKEN) 
 
         ;; Check user doesn't already have a public profile
-        (asserts! (is-none (contract-call? .storage get-public-user-profile tx-sender)) ERR-PROFILE-EXISTS)
+        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-public-user-profile tx-sender)) ERR-PROFILE-EXISTS)
 
         ;; Save the public user profile data by calling the storage contract
-        (unwrap! (contract-call? .storage create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? STORAGE-CONTRACT create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; Update platform statistics - now, one more user so increment by one
         (var-set total-users (+ current-users u1))
@@ -569,10 +627,10 @@
     (new-bio (string-utf8 256)))
     (begin
         ;; Make sure caller has a creator profile
-        (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; Call storage contract to update the profile
-        (unwrap! (contract-call? .storage update-creator-profile 
+        (unwrap! (contract-call? STORAGE-CONTRACT update-creator-profile 
                     tx-sender 
                     new-display-name 
                     new-bio) 
@@ -600,10 +658,10 @@
     (new-bio (string-utf8 256)))
     (begin
         ;; Make sure caller has a public user profile
-        (asserts! (is-some (contract-call? .storage get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; Call storage contract to update the profile
-        (unwrap! (contract-call? .storage update-public-user-profile 
+        (unwrap! (contract-call? STORAGE-CONTRACT update-public-user-profile 
                     tx-sender 
                     new-display-name 
                     new-bio) 
@@ -662,12 +720,12 @@
 
         ;; Most important: I verify this person is actually a registered creator on Glamora
         ;; Only creators can post content, public users can only view and support
-        (asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; SAVE CONTENT TO STORAGE
         ;; I call the storage contract to permanently save all the post details
         ;; This includes the title, description, category, and both the content hash and IPFS link
-        (unwrap! (contract-call? .storage create-content 
+        (unwrap! (contract-call? STORAGE-CONTRACT create-content 
                     content-id
                     tx-sender
                     title
@@ -717,11 +775,15 @@
 ;; - content-id uint
 ;; - tip amount uint
 ;; - message (string-utf8 128) 
-(define-public (tip-creator (content-id uint) (tip-amount uint) (message (string-utf8 128)))
+(define-public (tip-creator 
+    (content-id uint) 
+    (tip-amount uint) 
+    (message (string-utf8 128)) 
+    (payment-token uint)) ;;  User chooses u1=sBTC or u2=USDCx
     (let
         (
             ;; Get the post details to find who created it and validate it exists
-            (content-data (unwrap! (contract-call? .storage get-content-details content-id) ERR-CONTENT-NOT-FOUND))
+            (content-data (unwrap! (contract-call? STORAGE-CONTRACT get-content-details content-id) ERR-CONTENT-NOT-FOUND))
             
             ;; Extract the creator's wallet address from the post data
             (creator (get creator content-data))
@@ -732,47 +794,72 @@
             ;; Calculate what the creator actually receives (95% of tip)
             (creator-amount (- tip-amount platform-fee))
         )
+    
+        ;; we'll do two validation checks, first
+        ;; make sure payment token is valid (u1=sBTC or u2=USDCx)
+        ;; this is our security to allow only valid tokens
+        (asserts! (or (is-eq payment-token TOKEN-SBTC) 
+                      (is-eq payment-token TOKEN-USDCX)) 
+                  ERR-INVALID-INPUT)
         
-        ;; VALIDATION CHECKS
-
-        ;; Ensure the tip meets minimum amount requirement (1 STX)
-        (asserts! (>= tip-amount MIN-TIP-AMOUNT) ERR-INVALID-INPUT)
+        ;; secondly, Check minimum tip based on chosen token
+        ;; sBTC minimum = 0.001 sBTC (~$100), USDCx minimum = 0.50 USDCx ($0.50)
+        ;; if the tip amount is not up to the required amount it fails immediatly
+        (asserts! (if (is-eq payment-token TOKEN-SBTC)
+                      (>= tip-amount MIN-TIP-SBTC)
+                      (>= tip-amount MIN-TIP-USDCX))
+                  ERR-INVALID-AMOUNT)
         
         ;; Prevent users from tipping themselves
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
 
-        ;; ;; SBTC PAYMENT PROCESSING
-
-        ;; Transfer 95% of tip to the content creator using sBTC
-        (unwrap! (contract-call? SBTC-CONTRACT transfer 
-            creator-amount 
-            tx-sender 
-            creator 
-            none)                    ;; the none parameter is for memo which is optional so (we pass none)
-            ERR-TRANSFER-FAILED
+        ;; PAYMENT PROCESSING
+        ;; STEP 1: TRANSFER CREATOR'S 95% SHARE
+        ;; Fan pays creator directly with their chosen token (sBTC or USDCx)
+        ;; The creator gets 95% of the tip amount immediately
+        ;; We check payment-token to know which token contract to call
+        (if (is-eq payment-token TOKEN-SBTC)
+            (try! (contract-call? SBTC-CONTRACT transfer 
+                creator-amount 
+                tx-sender
+                creator 
+                none))
+            (try! (contract-call? USDCX-CONTRACT transfer 
+                creator-amount 
+                tx-sender
+                creator 
+                none))
         )
         
-        ;; Transfer 5% platform fee to the contract using sBTC
-        (unwrap! (contract-call? SBTC-CONTRACT transfer 
-            platform-fee 
-            tx-sender 
-            CONTRACT-ADDRESS 
-            none) 
-            ERR-TRANSFER-FAILED
+        ;; STEP 2: TRANSFER PLATFORM'S 5% FEE
+        ;; Glamora platform keeps 5% to sustain operations
+        ;; Fee goes to CONTRACT-ADDRESS where platform can withdraw later
+        ;; Again using the same token type the fan chose to pay with
+        (if (is-eq payment-token TOKEN-SBTC)
+            (try! (contract-call? SBTC-CONTRACT transfer 
+                platform-fee 
+                tx-sender
+                CONTRACT-ADDRESS 
+                none))
+            (try! (contract-call? USDCX-CONTRACT transfer 
+                platform-fee 
+                tx-sender
+                CONTRACT-ADDRESS 
+                none))
         )
 
         ;; DATA RECORDING
         ;; Save tip details permanently in storage contract
-        (unwrap! (contract-call? .storage record-tip 
+        (unwrap! (contract-call? STORAGE-CONTRACT record-tip 
                     content-id      ;; Which post was tipped
                     tx-sender       ;; Who sent the tip
                     creator         ;; Who received the tip
                     tip-amount      ;; Total amount tipped
                     message         ;; Message from tipper
+                    payment-token   ;; Which token was used (u1=sBTC, u2=USDCx)
                 ) 
             ERR-TRANSFER-FAILED
         )
-
 
         ;; PLATFORM STATISTICS UPDATE
         ;; Increment total tips counter by 1
@@ -791,7 +878,7 @@
             amount: tip-amount,                 ;; Total tip amount
             platform-fee: platform-fee,         ;; Platform's cut
             creator-received: creator-amount,    ;; Creator's actual payout
-            payment-token: "sBTC"
+            payment-token: (if (is-eq payment-token TOKEN-SBTC) "sBTC" "USDCx") ;; this "if" statement here is a translator that translate specifies which token was used
         })
 
         (ok true)  ;; Return success status
@@ -820,10 +907,10 @@
         (asserts! (has-profile user-to-follow) ERR-PROFILE-NOT-FOUND)
 
         ;; Make sure you're not already following this person
-        (asserts! (not (contract-call? .storage is-following tx-sender user-to-follow)) ERR-ALREADY-FOLLOWING)
+        (asserts! (not (contract-call? STORAGE-CONTRACT is-following tx-sender user-to-follow)) ERR-ALREADY-FOLLOWING)
 
         ;; Create follow relationship
-        (unwrap! (contract-call? .storage create-follow tx-sender user-to-follow) ERR-FOLLOW-FAILED)
+        (unwrap! (contract-call? STORAGE-CONTRACT create-follow tx-sender user-to-follow) ERR-FOLLOW-FAILED)
 
         (print {
             event: "user-followed",
@@ -843,10 +930,10 @@
 (define-public (unfollow-user (user-to-unfollow principal)) 
     (begin
         ;; Make sure you're actually following this person first
-        (asserts! (contract-call? .storage is-following tx-sender user-to-unfollow) ERR-NOT-FOLLOWING)
+        (asserts! (contract-call? STORAGE-CONTRACT is-following tx-sender user-to-unfollow) ERR-NOT-FOLLOWING)
 
         ;; If check passed and you're indeed following them we can proceed to remove the follow relationship
-        (unwrap! (contract-call? .storage remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
+        (unwrap! (contract-call? STORAGE-CONTRACT remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
 
         (print {
             event: "user-unfollowed",
@@ -866,11 +953,13 @@
 ;; @params
 ;; - creator: The creator's wallet address to subscribe to
 ;; - tier: Subscription tier (1=Basic, 2=Premium, 3=VIP)
-(define-public (subscribe-to-creator (creator principal) (tier uint))
+(define-public (subscribe-to-creator (creator principal) (tier uint) (payment-token uint))
     (let
         (
-            ;; Get the subscription price for selected tier
-            (subscription-price (unwrap! (get-tier-price tier) ERR-INVALID-TIER))
+            ;; let's the subscription price based on tier and token choice
+            (subscription-price (if (is-eq payment-token TOKEN-SBTC)
+                                    (unwrap! (get-tier-price tier) ERR-INVALID-TIER)
+                                    (unwrap! (get-tier-price-usdcx tier) ERR-INVALID-TIER)))
             
             ;; Calculate the platform fee (5% of subscription)
             (platform-fee (/ (* subscription-price u5) u100))
@@ -885,35 +974,50 @@
         ;; Make sure subscriber has a profile (creator or public user)
         (asserts! (has-profile tx-sender) ERR-PROFILE-NOT-FOUND)
         
+        ;; ensure the payment token is valid (u1=sBTC or u2=USDCx)
+        (asserts! (or (is-eq payment-token TOKEN-SBTC) 
+                      (is-eq payment-token TOKEN-USDCX)) 
+                  ERR-INVALID-INPUT)
+
         ;; Make that the sure creator exists and has a creator profile
-        (asserts! (is-some (contract-call? .storage get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
         
         ;; Prevent users from subscribing to themselves
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
         
-        ;; Check the user does not already have active subscription to this creator
-        (asserts! (not (has-active-subscription tx-sender creator)) ERR-SUBSCRIPTION-ACTIVE)
-        
-        ;; Transfer 95% of subscription fee to creator using sBTC
-        (unwrap! (contract-call? SBTC-CONTRACT transfer 
-            creator-amount 
-            tx-sender 
-            creator 
-            none) 
-            ERR-TRANSFER-FAILED
+       ;; Check the user does not already have active subscription to this creator
+        (asserts! (not (unwrap! (has-active-subscription tx-sender creator) ERR-SUBSCRIPTION-CHECK-FAILED)) ERR-SUBSCRIPTION-ACTIVE)    
+        ;; PAYMENT PROCESSING
+        ;; STEP 1: TRANSFER CREATOR'S 95% SHARE OF SUBSCRIPTION
+        (if (is-eq payment-token TOKEN-SBTC)
+            (try! (contract-call? SBTC-CONTRACT transfer 
+                creator-amount 
+                tx-sender
+                creator
+                none))
+            (try! (contract-call? USDCX-CONTRACT transfer 
+                creator-amount 
+                tx-sender
+                creator
+                none))
         )
         
-        ;; Transfer 5% platform fee to contract using sBTC
-        (unwrap! (contract-call? SBTC-CONTRACT transfer 
-            platform-fee 
-            tx-sender 
-            CONTRACT-ADDRESS 
-            none) 
-            ERR-TRANSFER-FAILED
+        ;; STEP 2: TRANSFER PLATFORM'S 5% SUBSCRIPTION FEE
+        (if (is-eq payment-token TOKEN-SBTC)
+            (try! (contract-call? SBTC-CONTRACT transfer 
+                platform-fee 
+                tx-sender
+                CONTRACT-ADDRESS
+                none))
+            (try! (contract-call? USDCX-CONTRACT transfer 
+                platform-fee 
+                tx-sender
+                CONTRACT-ADDRESS
+                none))
         )
         
         ;; Call the storage contract save subscription details 
-        (unwrap! (contract-call? .storage create-subscription
+        (unwrap! (contract-call? STORAGE-CONTRACT create-subscription
                     tx-sender           ;; Who is subscribing
                     creator             ;; Who they're subscribing to
                     tier                ;; What tier they selected
@@ -942,7 +1046,7 @@
             creator-received: creator-amount,
             platform-fee: platform-fee,
             expiry-block: expiry-block,
-            payment-token: "sBTC"
+            payment-token: (if (is-eq payment-token TOKEN-SBTC) "sBTC" "USDCx")
         })
         
         (ok true)
@@ -958,7 +1062,7 @@
     (let
         (
             ;; Get current subscription details
-            (subscription-data (unwrap! (contract-call? .storage get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
+            (subscription-data (unwrap! (contract-call? STORAGE-CONTRACT get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
         )
         
         ;; Make sure subscription is for the specified creator
@@ -968,7 +1072,7 @@
         (asserts! (is-subscription-active (get expiry-block subscription-data)) ERR-SUBSCRIPTION-EXPIRED)
         
         ;; Remove the subscription from storage
-        (unwrap! (contract-call? .storage cancel-subscription 
+        (unwrap! (contract-call? STORAGE-CONTRACT cancel-subscription 
                     tx-sender
                     TIER-BASIC
                     TIER-PREMIUM
@@ -992,47 +1096,4 @@
         (ok true)
     )
 )
-
-;; CREATE NFT FASHION COLLECTION
-;; @desc: This function lets fashion creators start their own digital fashion collection on glamora
-;; Pay a 0.05 sBTC fee to create the collection
-;; @params:
-;; - collection-name: the name of your fashion collection
-;; - description: tell people what your collection is about 
-;; - max-editions: maximum number of NFTs this collection can have (minimum 1, maximum 10,000)
-;;(define-public (create-nft-collection 
-    ;;(collection-name (string-utf8 32)) 
-    ;;(description (string-utf8 256)) 
-    ;;(max-editions uint)) 
-    ;;(begin
-        ;; Make sure the person trying to create this collection is actually a registered creator
-        ;;(asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
-
-        ;; Collect the 0.05 sBTC creation fee from the creator using sBTC token
-        ;;(unwrap! (contract-call? SBTC-CONTRACT transfer 
-          ;;  COLLECTION-CREATION-FEE 
-            ;;tx-sender 
-            ;;CONTRACT-ADDRESS 
-            ;;none) 
-            ;;ERR-TRANSFER-FAILED)
-
-        ;; Create the collection by calling the glamora-nft contract
-        ;;(unwrap! (contract-call? .glamora-nft create-fashion-collection 
-            ;;collection-name 
-            ;;description 
-            ;;max-editions) 
-            ;;ERR-STORAGE-FAILED)
-
-        ;; Log the event
-        ;;(print {
-            ;;event: "collection-created",
-            ;;creator: tx-sender,
-            ;;collection-name: collection-name,
-            ;;fee-paid: COLLECTION-CREATION-FEE,
-            ;;payment-token: "sBTC"
-        ;;})
-
-        ;;(ok true)
-    ;;)
-;;)
 

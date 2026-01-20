@@ -18,13 +18,13 @@
 ;;===================================
 
 ;; ERROR CODES 
-(define-constant ERR-NOT-AUTHORIZED (err u100))         ;; only the main contract can save data here
-(define-constant ERR-USER-NOT-FOUND (err u101))         ;; the user's profile can't be found anywhere
-(define-constant ERR-USERNAME-TAKEN (err u102))         ;; Someone has already picked that username 
-(define-constant ERR-PROFILE-EXISTS (err u103))         ;; User already created their profile before
-(define-constant ERR-INVALID-DATA (err u104))           ;; The information inputted is wrong
-(define-constant ERR-LISTING-NOT-FOUND (err u105))      ;; NFT listing not found
-(define-constant ERR-LISTING-EXISTS (err u106))         ;; NFT already has active listing
+(define-constant ERR-NOT-AUTHORIZED (err u401))         ;; only the main contract can save data here
+(define-constant ERR-USER-NOT-FOUND (err u402))         ;; the user's profile can't be found anywhere
+(define-constant ERR-USERNAME-TAKEN (err u403))         ;; Someone has already picked that username 
+(define-constant ERR-PROFILE-EXISTS (err u404))         ;; User already created their profile before
+(define-constant ERR-INVALID-DATA (err u405))           ;; The information inputted is wrong
+(define-constant ERR-LISTING-NOT-FOUND (err u406))      ;; NFT listing not found
+(define-constant ERR-LISTING-EXISTS (err u407))         ;; NFT already has active listing
 
 ;;================================
 ;; Variables 
@@ -97,7 +97,7 @@
     title: (string-utf8 64),
     description: (string-utf8 256),
     content-hash: (buff 32),
-    ipfs-hash: (optional (string-ascii 64)), ;; ipfs added
+    ipfs-hash: (optional (string-ascii 64)), 
     category: uint,
     creation-date: uint,
     tip-count: uint,
@@ -110,7 +110,8 @@
     creator: principal,
     tip-amount: uint,
     tip-date: uint,
-    message: (string-utf8 128)
+    message: (string-utf8 128),
+    payment-token: uint 
 })
 
 ;; This stores information about who follows whom in the platform
@@ -530,7 +531,13 @@
 ;; - creator principal                  
 ;; - tip-amount uint                    
 ;; - message (string-utf8 128))         
-(define-public (record-tip (content-id uint) (tipper principal) (creator principal) (tip-amount uint) (message (string-utf8 128))) 
+(define-public (record-tip 
+    (content-id uint) 
+    (tipper principal) 
+    (creator principal) 
+    (tip-amount uint) 
+    (message (string-utf8 128)) 
+    (payment-token uint)) 
     (let
         (
             ;; Get current post data to update tip statistics
@@ -553,7 +560,8 @@
             creator: creator,                   ;; Who received the tip
             tip-amount: tip-amount,             ;; How much was tipped
             tip-date: stacks-block-height,      ;; When tip was sent
-            message: message                    ;; Tipper's message
+            message: message,                    ;; Tipper's message
+            payment-token: payment-token        ;; specifies which token was used (u1=sBTC, u2=USDCx)
         })
 
         ;; CONTENT STATISTICS UPDATE
@@ -1125,6 +1133,5 @@
     ;; Set deployer as contract admin for permission management
     (var-set contract-admin tx-sender)
 )
-
 
 

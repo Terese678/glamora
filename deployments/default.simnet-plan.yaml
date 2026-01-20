@@ -63,14 +63,19 @@ plan:
             path: "contracts\\sip-009.clar"
             clarity-version: 3
         - emulated-contract-publish:
-            contract-name: storage
+            contract-name: storage-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\storage.clar"
+            path: "contracts\\storage-v2.clar"
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: glamora-nft
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\glamora-nft.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: usdcx-token
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\usdcx-token.clar"
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: main
