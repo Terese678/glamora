@@ -182,7 +182,7 @@
 ;; If the NFT exists by the number that was inputted (token-id) 
 ;; then it returns IPFS hash and the wallets can show the picture
 (define-public (get-token-uri (token-id uint))
-    (ok (match (contract-call? .storage-v2 get-nft-metadata token-id) 
+    (ok (match (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 get-nft-metadata token-id) 
         nft-data (some (concat "ipfs://" (get image-ipfs-hash nft-data)))
         none))
 )
@@ -261,7 +261,7 @@
 
         ;; NOW Store all the collection information 
         ;; We'll call the storage contract to save - ID, name, creator, description, and max items
-        (unwrap! (contract-call? .storage-v2  store-collection-data 
+        (unwrap! (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 store-collection-data 
             collection-id 
             collection-name 
             tx-sender 
@@ -312,7 +312,7 @@
     (let
         (
             ;; get collection data to verify it exists and check limits
-            (collection-data (unwrap! (contract-call? .storage-v2 get-collection-data collection-id) ERR-INVALID-INPUT))
+            (collection-data (unwrap! (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 get-collection-data collection-id) ERR-INVALID-INPUT))
             
             ;; get next NFT ID to assign to this new NFT
             (token-id (+ (var-get total-nfts-minted) u1))
@@ -336,7 +336,7 @@
         (unwrap! (nft-mint? glamora-nft token-id recipient) ERR-TRANSFER-FAILED)
         
         ;; store NFT metadata
-        (unwrap! (contract-call? .storage-v2 store-nft-metadata
+        (unwrap! (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 store-nft-metadata
             token-id
             name
             description
@@ -346,7 +346,7 @@
             attributes-ipfs-hash) ERR-STORAGE-FAILED)
         
         ;; update collection edition count
-        (unwrap! (contract-call? .storage-v2 update-collection-editions collection-id) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 update-collection-editions collection-id) ERR-STORAGE-FAILED)
         
         ;; increment total NFTs minted on platform
         (var-set total-nfts-minted token-id)

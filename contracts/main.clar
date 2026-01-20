@@ -57,7 +57,7 @@
 (define-constant PLATFORM-TIP-PERCENTAGE u5)          ;; platform keeps 5% of tips received from creators
 (define-constant MARKETPLACE-FEE-PERCENTAGE u5)       ;; Marketplace fee percentage (5% platform fee on NFT sales)
 
-(define-constant STORAGE-CONTRACT .storage-v2)
+(define-constant STORAGE-CONTRACT 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2)
 
 ;; PAYMENT TOKEN CONTRACTS
 ;; These reference our deployed mock token contracts on testnet for dual-payment system
@@ -212,7 +212,7 @@
 
 ;; Get NFT listing details
 (define-public (get-nft-listing (token-id uint))
-   (ok (contract-call? STORAGE-CONTRACT get-nft-listing token-id))
+   (ok (contract-call? 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v2 get-nft-listing token-id))
 )
 
 ;; Check if NFT is listed
