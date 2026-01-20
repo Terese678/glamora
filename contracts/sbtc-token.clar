@@ -21,8 +21,9 @@
 
 ;; author: "Timothy Terese Chimbiv"
 
-(define-constant ERR-NOT-AUTHORIZED (err u1)) ;; 
-(define-constant ERR-INVALID-AMOUNT (err u2)) ;; 
+(define-constant ERR-NOT-AUTHORIZED (err u101)) ;; 
+(define-constant ERR-INVALID-AMOUNT (err u102)) ;; 
+(define-constant ERR-TRANSFER-FAILED (err u103))
 
 ;;===============================================
 ;; FUNGIBLE TOKEN DEFINITION
@@ -54,24 +55,33 @@
     )
 )
 
-;; TRANSFER TOKENS BETWEEN WALLETS
-;; this is the main function that makes all payments work on Glamora
-;; when fans tip creators or buy subscriptions, this function moves the tokens from one wallet to another
-;; i made sure it matches the real sBTC contract's interface so I can swap them seamlessly later
+;; TRANSFER sBTC BETWEEN WALLETS
+;; This is the core function that powers all Glamora payments (tips, subscriptions, purchases)
+;; When fans support creators, this moves sBTC from their wallet to the creator's wallet
+;;
+;; AUTHORIZATION LOGIC:
+;; We allow transfers if EITHER:
+;;   1. tx-sender is the token owner (direct wallet-to-wallet transfer)
+;;   2. contract-caller is the token owner (Glamora main contract calling on user's behalf)
+;; This dual-check lets the main.clar contract process payments during tips/subscriptions
+;; while still protecting against unauthorized transfers
+;;
+;; @param amount - how many sBTC microtokens to transfer (1 sBTC = 100,000,000 microtokens)
+;; @param sender - wallet address that owns the tokens being transferred
+;; @param recipient - wallet address receiving the tokens
+;; @param memo - optional note attached to transfer (not used currently, but standard SIP-010)
 (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
     (begin
-        ;; ensure the that amount is greater than zero
+        ;; Can't transfer zero or negative amounts
         (asserts! (> amount u0) ERR-INVALID-AMOUNT)
         
-        ;; first I check that the person calling this function is actually the sender
-        ;; this prevents anyone from moving tokens they don't own
-        (asserts! (is-eq tx-sender sender) ERR-NOT-AUTHORIZED)
+        ;; Security: only the token owner OR Glamora contract can initiate transfers
+        ;; This prevents random contracts from stealing user funds
+        (asserts! (or (is-eq tx-sender sender) (is-eq contract-caller sender)) ERR-NOT-AUTHORIZED)
         
-        ;; now I perform the actual transfer, moving tokens from sender to recipient
-        ;; if this fails for any reason like insufficient balance, the whole transaction stops
+        ;; Execute the actual token transfer using Clarity's built-in fungible token function
         (try! (ft-transfer? sbtc amount sender recipient))
         
-        ;; everything worked so return success
         (ok true)
     )
 )

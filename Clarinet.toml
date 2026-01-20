@@ -6,33 +6,36 @@ telemetry = true
 cache_dir = '.\.cache'
 requirements = []
 
-[contracts.sbtc-token]
-path = "contracts/sbtc-token.clar"
-clarity_version = 1
-epoch = 2.05
-
 [contracts.glamora-nft]
 path = 'contracts/glamora-nft.clar'
 clarity_version = 3
 epoch = 3.0
-depends_on = ["storage", "sip-009"]
 
 [contracts.main]
 path = 'contracts/main.clar'
 clarity_version = 3
 epoch = 3.0
-depends_on = ["sip-009", "storage", "glamora-nft", "sbtc-token"]
+depends_on = ['storage-v2']
+
+[contracts.sbtc-token]
+path = 'contracts/sbtc-token.clar'
+clarity_version = 1
+epoch = 2.05
 
 [contracts.sip-009]
 path = 'contracts/sip-009.clar'
 clarity_version = 3
 epoch = 3.0
 
-[contracts.storage]
-path = 'contracts/storage.clar'
+[contracts.storage-v2]
+path = 'contracts/storage-v2.clar'
 clarity_version = 3
 epoch = 3.0
 
+[contracts.usdcx-token]
+path = 'contracts/usdcx-token.clar'
+clarity_version = 3
+epoch = 3.0
 [repl.analysis]
 passes = ['check_checker']
 

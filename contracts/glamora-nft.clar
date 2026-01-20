@@ -18,18 +18,18 @@
 ;; CONSTANTS
 ;;========================================
 
-(define-constant ERR-NOT-NFT-OWNER (err u200)) ;; The caller is not the owner of this NFT
-(define-constant ERR-TRANSFER-FAILED (err u201)) ;; When sBTC or NFT transfer operation fails
+(define-constant ERR-NOT-NFT-OWNER (err u501)) ;; The caller is not the owner of this NFT
+(define-constant ERR-TRANSFER-FAILED (err u502)) ;; When sBTC or NFT transfer operation fails
 
-(define-constant ERR-NOT-AUTHORIZED (err u202)) ;; The caller is not authorized, 
+(define-constant ERR-NOT-AUTHORIZED (err u503)) ;; The caller is not authorized, 
 ;; the error triggers if the caller is not the .main contract
 
-(define-constant ERR-INVALID-COLLECTION-NAME (err u203)) ;; when an invalid collection name is provided, 
+(define-constant ERR-INVALID-COLLECTION-NAME (err u504)) ;; when an invalid collection name is provided, 
 ;; either the collection name is empty or too short
  
-(define-constant ERR-INVALID-INPUT (err u204)) ;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
+(define-constant ERR-INVALID-INPUT (err u505)) ;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
 
-(define-constant ERR-STORAGE-FAILED (err u205)) ;; When saving data to storage contract fails
+(define-constant ERR-STORAGE-FAILED (err u506)) ;; When saving data to storage contract fails
 
 (define-constant COLLECTION-CREATION-FEE u5000000) ;; Collection creation fee 0.05 sBTC
 
@@ -181,10 +181,10 @@
 ;; @desc: This function will get the web link where NFT details are stored like getting a website URL
 ;; If the NFT exists by the number that was inputted (token-id) 
 ;; then it returns IPFS hash and the wallets can show the picture
-(define-read-only (get-token-uri (token-id uint))
-    (match (contract-call? .storage get-nft-metadata token-id) 
-        nft-data (ok (some (concat "ipfs://" (get image-ipfs-hash nft-data)))) 
-    (ok none))
+(define-public (get-token-uri (token-id uint))
+    (ok (match (contract-call? .storage-v2 get-nft-metadata token-id) 
+        nft-data (some (concat "ipfs://" (get image-ipfs-hash nft-data)))
+        none))
 )
 
 ;; GET OWNER
@@ -261,7 +261,7 @@
 
         ;; NOW Store all the collection information 
         ;; We'll call the storage contract to save - ID, name, creator, description, and max items
-        (unwrap! (contract-call? .storage store-collection-data 
+        (unwrap! (contract-call? .storage-v2  store-collection-data 
             collection-id 
             collection-name 
             tx-sender 
@@ -312,7 +312,7 @@
     (let
         (
             ;; get collection data to verify it exists and check limits
-            (collection-data (unwrap! (contract-call? .storage get-collection-data collection-id) ERR-INVALID-INPUT))
+            (collection-data (unwrap! (contract-call? .storage-v2 get-collection-data collection-id) ERR-INVALID-INPUT))
             
             ;; get next NFT ID to assign to this new NFT
             (token-id (+ (var-get total-nfts-minted) u1))
@@ -336,7 +336,7 @@
         (unwrap! (nft-mint? glamora-nft token-id recipient) ERR-TRANSFER-FAILED)
         
         ;; store NFT metadata
-        (unwrap! (contract-call? .storage store-nft-metadata
+        (unwrap! (contract-call? .storage-v2 store-nft-metadata
             token-id
             name
             description
@@ -346,7 +346,7 @@
             attributes-ipfs-hash) ERR-STORAGE-FAILED)
         
         ;; update collection edition count
-        (unwrap! (contract-call? .storage update-collection-editions collection-id) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .storage-v2 update-collection-editions collection-id) ERR-STORAGE-FAILED)
         
         ;; increment total NFTs minted on platform
         (var-set total-nfts-minted token-id)
