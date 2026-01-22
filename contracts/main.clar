@@ -48,10 +48,18 @@
 (define-constant ERR-SUBSCRIPTION-EXPIRED (err u317))   ;; When user's subscription has expired
 (define-constant ERR-INVALID-AMOUNT (err u318))        ;; error when tip or payment amount doesn't meet minimum requirements
 (define-constant ERR-SUBSCRIPTION-CHECK-FAILED (err u318))
+(define-constant ERR-VAULT-INIT-FAILED (err u320))     ;; When creator vault initialization fails
 
 ;; CONTRACT IDENTITY CONSTANT FOR TRANSFERS
 ;; it creates a contract principal that can properly receive tokens
 (define-constant CONTRACT-ADDRESS (as-contract tx-sender))
+
+;; Bridge-adapter contract reference for payment intelligence
+(define-constant BRIDGE-ADAPTER .bridge-adapter)
+
+;; Payment source types (matches bridge-adapter constants)
+(define-constant SOURCE-BRIDGE u1)     ;; Payment came from Ethereum bridge
+(define-constant SOURCE-NATIVE u2)     ;; Payment came from Stacks wallet
 
 ;; Platform fees
 (define-constant PLATFORM-TIP-PERCENTAGE u5)          ;; platform keeps 5% of tips received from creators
@@ -212,19 +220,19 @@
 
 ;; Get NFT listing details
 (define-public (get-nft-listing (token-id uint))
-   (ok (contract-call? STORAGE-CONTRACT get-nft-listing token-id))
+   (ok (contract-call? .storage-v2 get-nft-listing token-id))
 )
 
 ;; Check if NFT is listed
 (define-public (is-nft-listed (token-id uint))
-    (ok (is-some (contract-call? STORAGE-CONTRACT get-nft-listing token-id)))
+    (ok (is-some (contract-call? .storage-v2 get-nft-listing token-id)))
 )
 
 ;; Get all active listings for a seller
 ;; Returns: (response (list of active NFT listings) uint)
 ;; This function retrieves all NFTs currently listed for sale by a specific seller from the storage contract
 (define-public (get-seller-listings (seller principal))
-    (ok (contract-call? STORAGE-CONTRACT get-seller-active-listings seller))
+    (ok (contract-call? .storage-v2 get-seller-active-listings seller))
 )
 
 ;; Get marketplace statistics
@@ -280,7 +288,7 @@
 ;; Returns: (response uint uint) - the follower count or an error
 ;; This function retrieves the follower count from a creator's profile in the storage contract
 (define-public (get-total-followers (user principal))
-    (match (contract-call? STORAGE-CONTRACT get-creator-profile user) 
+    (match (contract-call? .storage-v2 get-creator-profile user) 
         profile (ok (get follower-count profile)) 
         (err ERR-PROFILE-NOT-FOUND))
 )
@@ -289,21 +297,21 @@
 ;; Returns: (response (optional creator-profile) uint)
 ;; It asks the storage.clar contract to show a user profile like their username, bio, using their wallet address as a special ID
 (define-public (get-creator-profile (user principal)) 
-    (ok (contract-call? STORAGE-CONTRACT get-creator-profile user))
+    (ok (contract-call? .storage-v2 get-creator-profile user))
 )
 
 ;; Let's look up a public user profile
 ;; Returns: (response (optional public-user-profile) uint)
 ;; This retrieves the public profile information for any user from the storage contract
 (define-public (get-public-user-profile (user principal))
-    (ok (contract-call? STORAGE-CONTRACT get-public-user-profile user))
+    (ok (contract-call? .storage-v2 get-public-user-profile user))
 )
 
 ;; Let's retrieves the owner (principal) of a username from storage
 ;; Returns: (response (optional principal) uint)
 ;; This looks up which wallet address owns a specific username
 (define-public (get-username-owner (username (string-ascii 32)))
-    (ok (contract-call? STORAGE-CONTRACT get-username-owner username))
+    (ok (contract-call? .storage-v2 get-username-owner username))
 )
 
 ;;===============================================
@@ -314,7 +322,7 @@
 ;; Returns: (response (optional content-record) uint)
 ;; This asks Storage.clar for info about a post like its title, creator, or category using its ID number like #3
 (define-public (get-content-details (content-id uint))
-    (ok (contract-call? STORAGE-CONTRACT get-content-details content-id))
+    (ok (contract-call? .storage-v2 get-content-details content-id))
 )
 
 ;; Let's look at the details of a money tip someone sent for a post
@@ -322,7 +330,7 @@
 ;; This asks our Storage.clar for info about a tip like how much Bitcoin or stablecoin was sent, 
 ;; and any nice message the tipper included. We find it by matching the post ID and the tipper's wallet address
 (define-public (get-tip-details (content-id uint) (tipper principal))
-    (ok (contract-call? STORAGE-CONTRACT get-tip-history content-id tipper))
+    (ok (contract-call? .storage-v2 get-tip-history content-id tipper))
 )
 
 ;;===============================================
@@ -334,14 +342,14 @@
 ;; This checks in storage if one user (by their wallet address) is following another user,
 ;; like checking if two people are friends or connected in the app
 (define-public (is-user-following (follower principal) (following principal)) 
-    (ok (contract-call? STORAGE-CONTRACT is-following follower following))
+    (ok (contract-call? .storage-v2 is-following follower following))
 )
 
 ;; This will get our follow records from storage
 ;; Returns: (response (optional follow-record) uint)
 ;; Retrieves the complete follow relationship data between two users
 (define-public (get-follow-record (follower principal) (following principal))
-    (ok (contract-call? STORAGE-CONTRACT get-follow-record follower following))
+    (ok (contract-call? .storage-v2 get-follow-record follower following))
 )
 
 ;;===============================================
@@ -351,7 +359,7 @@
 ;; Get the user's subscription details
 ;; we have to call the storage contract to retrieve the subscription details 
 (define-public (get-user-subscription (user principal))
-    (ok (contract-call? STORAGE-CONTRACT get-user-subscription user))
+    (ok (contract-call? .storage-v2 get-user-subscription user))
 )
 
 ;; @desc: check if "subscriber" currently has a valid (non-expired) subscription to the "specified creator"
@@ -361,7 +369,7 @@
 ;; - subscriber => principal (the user who might be subscribed)
 ;; - creator   => principal (the creator they might be subscribed to)
 (define-public (has-active-subscription (subscriber principal) (creator principal))
-    (ok (match (contract-call? STORAGE-CONTRACT get-user-subscription subscriber)
+    (ok (match (contract-call? .storage-v2 get-user-subscription subscriber)
         subscription-data 
             ;; Check if subscription exists, it is for this creator, and has not expired yet
             (and 
@@ -384,7 +392,7 @@
 
 ;; Get the creator's subscription statistics
 (define-public (get-creator-subscription-stats (creator principal))
-    (ok (contract-call? STORAGE-CONTRACT get-creator-subscription-stats creator))
+    (ok (contract-call? .storage-v2 get-creator-subscription-stats creator))
 )
 
 ;;===============================================
@@ -394,12 +402,12 @@
 ;; @desc: This function bridges the main contract to the storage contract to fetch NFT metadata
 ;; We call our storage contract to fetch the NFT metadata providing it a token id
 (define-public (get-nft-metadata (token-id uint))
-    (ok (contract-call? STORAGE-CONTRACT get-nft-metadata token-id))
+    (ok (contract-call? .storage-v2 get-nft-metadata token-id))
 )
 
 ;; Let's look up the details about a fashion collection
 (define-public (get-collections-details (collection-id uint))
-    (ok (contract-call? STORAGE-CONTRACT get-collection-data collection-id))
+    (ok (contract-call? .storage-v2 get-collection-data collection-id))
 ) ;; this function will ask storage.clar for info about a collection like its name, 
 ;; creator, description using its ID number like #1, #2, #3
 
@@ -457,8 +465,8 @@
     ;; I check both the creator profile map AND the public user profile map
     ;; and if the user has either one they're considered registered
     ;; The 'or' means if EITHER check returns true, the whole function returns true
-    (or (is-some (contract-call? STORAGE-CONTRACT get-creator-profile user))
-    (is-some (contract-call? STORAGE-CONTRACT get-public-user-profile user)))
+    (or (is-some (contract-call? .storage-v2 get-creator-profile user))
+    (is-some (contract-call? .storage-v2 get-public-user-profile user)))
 )
 
 ;; Calculates how much platform fee to take from a tip (5% of total tip amount)
@@ -552,22 +560,28 @@
         )
         
         ;; Check the username is not already taken by another user
-        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-username-owner username)) ERR-USERNAME-TAKEN) 
+        (asserts! (is-none (contract-call? .storage-v2 get-username-owner username)) ERR-USERNAME-TAKEN) 
 
         ;; Check user doesn't already have a profile 
-        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-EXISTS) 
+        (asserts! (is-none (contract-call? .storage-v2 get-creator-profile tx-sender)) ERR-PROFILE-EXISTS) 
 
         ;; SAVE THE DATA - by calling the storage contract
-        (unwrap! (contract-call? STORAGE-CONTRACT create-creator-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .storage-v2 create-creator-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; UPDATE PLATFORM STATISTICS
         (var-set total-users (+ current-users u1))
+
+        ;; INITIALIZE CREATOR VAULT
+        ;; Create earnings vault for this new creator to accumulate tips and save gas fees
+        ;; Vault starts with zero balance and $50 default withdrawal threshold
+        (unwrap! (contract-call? .bridge-adapter initialize-vault tx-sender) ERR-VAULT-INIT-FAILED)
 
         ;; SUCCESS 
         (print {
             event: "profile-created",
             user: tx-sender,
-            username: username
+            username: username,
+            vault-initialized: true
         })
 
         (ok true)
@@ -589,13 +603,13 @@
         )
 
         ;; Check the username is not already taken by another user
-        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-username-owner username)) ERR-USERNAME-TAKEN) 
+        (asserts! (is-none (contract-call? .storage-v2 get-username-owner username)) ERR-USERNAME-TAKEN) 
 
         ;; Check user doesn't already have a public profile
-        (asserts! (is-none (contract-call? STORAGE-CONTRACT get-public-user-profile tx-sender)) ERR-PROFILE-EXISTS)
+        (asserts! (is-none (contract-call? .storage-v2 get-public-user-profile tx-sender)) ERR-PROFILE-EXISTS)
 
         ;; Save the public user profile data by calling the storage contract
-        (unwrap! (contract-call? STORAGE-CONTRACT create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .storage-v2 create-public-user-profile tx-sender username display-name bio) ERR-STORAGE-FAILED)
 
         ;; Update platform statistics - now, one more user so increment by one
         (var-set total-users (+ current-users u1))
@@ -627,10 +641,10 @@
     (new-bio (string-utf8 256)))
     (begin
         ;; Make sure caller has a creator profile
-        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? .storage-v2 get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; Call storage contract to update the profile
-        (unwrap! (contract-call? STORAGE-CONTRACT update-creator-profile 
+        (unwrap! (contract-call? .storage-v2 update-creator-profile 
                     tx-sender 
                     new-display-name 
                     new-bio) 
@@ -658,10 +672,10 @@
     (new-bio (string-utf8 256)))
     (begin
         ;; Make sure caller has a public user profile
-        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? .storage-v2 get-public-user-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; Call storage contract to update the profile
-        (unwrap! (contract-call? STORAGE-CONTRACT update-public-user-profile 
+        (unwrap! (contract-call? .storage-v2 update-public-user-profile 
                     tx-sender 
                     new-display-name 
                     new-bio) 
@@ -720,12 +734,12 @@
 
         ;; Most important: I verify this person is actually a registered creator on Glamora
         ;; Only creators can post content, public users can only view and support
-        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? .storage-v2 get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
         
         ;; SAVE CONTENT TO STORAGE
         ;; I call the storage contract to permanently save all the post details
         ;; This includes the title, description, category, and both the content hash and IPFS link
-        (unwrap! (contract-call? STORAGE-CONTRACT create-content 
+        (unwrap! (contract-call? .storage-v2 create-content 
                     content-id
                     tx-sender
                     title
@@ -783,7 +797,7 @@
     (let
         (
             ;; Get the post details to find who created it and validate it exists
-            (content-data (unwrap! (contract-call? STORAGE-CONTRACT get-content-details content-id) ERR-CONTENT-NOT-FOUND))
+            (content-data (unwrap! (contract-call? .storage-v2 get-content-details content-id) ERR-CONTENT-NOT-FOUND))
             
             ;; Extract the creator's wallet address from the post data
             (creator (get creator content-data))
@@ -819,12 +833,12 @@
         ;; The creator gets 95% of the tip amount immediately
         ;; We check payment-token to know which token contract to call
         (if (is-eq payment-token TOKEN-SBTC)
-            (try! (contract-call? SBTC-CONTRACT transfer 
+            (try! (contract-call? .sbtc-token transfer 
                 creator-amount 
                 tx-sender
                 creator 
                 none))
-            (try! (contract-call? USDCX-CONTRACT transfer 
+            (try! (contract-call? .usdcx-token transfer 
                 creator-amount 
                 tx-sender
                 creator 
@@ -836,21 +850,39 @@
         ;; Fee goes to CONTRACT-ADDRESS where platform can withdraw later
         ;; Again using the same token type the fan chose to pay with
         (if (is-eq payment-token TOKEN-SBTC)
-            (try! (contract-call? SBTC-CONTRACT transfer 
+            (try! (contract-call? .sbtc-token transfer 
                 platform-fee 
                 tx-sender
                 CONTRACT-ADDRESS 
                 none))
-            (try! (contract-call? USDCX-CONTRACT transfer 
+            (try! (contract-call? .usdcx-token transfer 
                 platform-fee 
                 tx-sender
                 CONTRACT-ADDRESS 
                 none))
         )
 
+        ;; STEP 3: DEPOSIT TO CREATOR VAULT (for USDCx only)
+        ;; For USDCx tips, deposit to vault instead of direct transfer to save gas fees
+        ;; sBTC tips go direct because Bitcoin holders prefer immediate access
+        (if (is-eq payment-token TOKEN-USDCX)
+            (unwrap! (contract-call? .bridge-adapter deposit-to-vault creator creator-amount) ERR-TRANSFER-FAILED)
+            true  ;; For sBTC, skip vault deposit (already transferred directly)
+        )
+
+        ;; STEP 4: RECORD PAYMENT SOURCE
+        ;; Track whether this payment came from bridge or native wallet
+        ;; For now, we assume native (SOURCE-NATIVE = u2) since bridging isn't live yet
+        ;; When xReserve launches, we'll detect bridge deposits automatically
+        (unwrap! (contract-call? .bridge-adapter record-payment-source 
+                    tx-sender 
+                    tip-amount 
+                    SOURCE-NATIVE) 
+            ERR-TRANSFER-FAILED)
+
         ;; DATA RECORDING
         ;; Save tip details permanently in storage contract
-        (unwrap! (contract-call? STORAGE-CONTRACT record-tip 
+        (unwrap! (contract-call? .storage-v2 record-tip 
                     content-id      ;; Which post was tipped
                     tx-sender       ;; Who sent the tip
                     creator         ;; Who received the tip
@@ -907,10 +939,10 @@
         (asserts! (has-profile user-to-follow) ERR-PROFILE-NOT-FOUND)
 
         ;; Make sure you're not already following this person
-        (asserts! (not (contract-call? STORAGE-CONTRACT is-following tx-sender user-to-follow)) ERR-ALREADY-FOLLOWING)
+        (asserts! (not (contract-call? .storage-v2 is-following tx-sender user-to-follow)) ERR-ALREADY-FOLLOWING)
 
         ;; Create follow relationship
-        (unwrap! (contract-call? STORAGE-CONTRACT create-follow tx-sender user-to-follow) ERR-FOLLOW-FAILED)
+        (unwrap! (contract-call? .storage-v2 create-follow tx-sender user-to-follow) ERR-FOLLOW-FAILED)
 
         (print {
             event: "user-followed",
@@ -930,10 +962,10 @@
 (define-public (unfollow-user (user-to-unfollow principal)) 
     (begin
         ;; Make sure you're actually following this person first
-        (asserts! (contract-call? STORAGE-CONTRACT is-following tx-sender user-to-unfollow) ERR-NOT-FOLLOWING)
+        (asserts! (contract-call? .storage-v2 is-following tx-sender user-to-unfollow) ERR-NOT-FOLLOWING)
 
         ;; If check passed and you're indeed following them we can proceed to remove the follow relationship
-        (unwrap! (contract-call? STORAGE-CONTRACT remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
+        (unwrap! (contract-call? .storage-v2 remove-follow tx-sender user-to-unfollow) ERR-UNFOLLOW-FAILED)
 
         (print {
             event: "user-unfollowed",
@@ -980,7 +1012,7 @@
                   ERR-INVALID-INPUT)
 
         ;; Make that the sure creator exists and has a creator profile
-        (asserts! (is-some (contract-call? STORAGE-CONTRACT get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? .storage-v2 get-creator-profile creator)) ERR-PROFILE-NOT-FOUND)
         
         ;; Prevent users from subscribing to themselves
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
@@ -990,12 +1022,12 @@
         ;; PAYMENT PROCESSING
         ;; STEP 1: TRANSFER CREATOR'S 95% SHARE OF SUBSCRIPTION
         (if (is-eq payment-token TOKEN-SBTC)
-            (try! (contract-call? SBTC-CONTRACT transfer 
+            (try! (contract-call? .sbtc-token transfer 
                 creator-amount 
                 tx-sender
                 creator
                 none))
-            (try! (contract-call? USDCX-CONTRACT transfer 
+            (try! (contract-call? .usdcx-token transfer 
                 creator-amount 
                 tx-sender
                 creator
@@ -1004,20 +1036,35 @@
         
         ;; STEP 2: TRANSFER PLATFORM'S 5% SUBSCRIPTION FEE
         (if (is-eq payment-token TOKEN-SBTC)
-            (try! (contract-call? SBTC-CONTRACT transfer 
+            (try! (contract-call? .sbtc-token transfer 
                 platform-fee 
                 tx-sender
                 CONTRACT-ADDRESS
                 none))
-            (try! (contract-call? USDCX-CONTRACT transfer 
+            (try! (contract-call? .usdcx-token transfer 
                 platform-fee 
                 tx-sender
                 CONTRACT-ADDRESS
                 none))
         )
+
+        ;; STEP 3: DEPOSIT TO CREATOR VAULT (for USDCx only)
+        ;; For USDCx subscriptions, deposit to vault to save gas fees
+        (if (is-eq payment-token TOKEN-USDCX)
+            (unwrap! (contract-call? .bridge-adapter deposit-to-vault creator creator-amount) ERR-STORAGE-FAILED)
+            true  ;; sBTC goes direct
+        )
+
+        ;; STEP 4: RECORD PAYMENT SOURCE
+        ;; Track subscription payment source for analytics
+        (unwrap! (contract-call? .bridge-adapter record-payment-source 
+                    tx-sender 
+                    subscription-price 
+                    SOURCE-NATIVE) 
+            ERR-STORAGE-FAILED)
         
         ;; Call the storage contract save subscription details 
-        (unwrap! (contract-call? STORAGE-CONTRACT create-subscription
+        (unwrap! (contract-call? .storage-v2 create-subscription
                     tx-sender           ;; Who is subscribing
                     creator             ;; Who they're subscribing to
                     tier                ;; What tier they selected
@@ -1062,7 +1109,7 @@
     (let
         (
             ;; Get current subscription details
-            (subscription-data (unwrap! (contract-call? STORAGE-CONTRACT get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
+            (subscription-data (unwrap! (contract-call? .storage-v2 get-user-subscription tx-sender) ERR-NO-SUBSCRIPTION))
         )
         
         ;; Make sure subscription is for the specified creator
@@ -1072,7 +1119,7 @@
         (asserts! (is-subscription-active (get expiry-block subscription-data)) ERR-SUBSCRIPTION-EXPIRED)
         
         ;; Remove the subscription from storage
-        (unwrap! (contract-call? STORAGE-CONTRACT cancel-subscription 
+        (unwrap! (contract-call? .storage-v2 cancel-subscription 
                     tx-sender
                     TIER-BASIC
                     TIER-PREMIUM
@@ -1097,3 +1144,47 @@
     )
 )
 
+;;===============================================
+;; BRIDGE & VAULT FUNCTIONS
+;;===============================================
+
+;; Get creator's vault balance and earnings report
+;; Shows total earned, available balance, and Nigerian Naira equivalent
+(define-public (get-creator-vault-info (creator principal))
+    (contract-call? .bridge-adapter get-earnings-stability-report creator)
+)
+
+;; Get payment source statistics for a user
+;; Shows how much they've bridged vs used from native wallet
+(define-public (get-user-payment-sources (user principal))
+    (contract-call? .bridge-adapter get-payment-source-stats user)
+)
+
+;; Let creator update their vault withdrawal threshold
+;; Default is $50, but high-earners might prefer $100 or $200
+(define-public (set-vault-threshold (new-threshold uint))
+    (contract-call? .bridge-adapter update-withdrawal-threshold tx-sender new-threshold)
+)
+
+;; Withdraw from creator vault to Ethereum
+;; This would integrate with xReserve bridge when it launches
+;; For now, this is a placeholder for the actual bridge integration
+(define-public (withdraw-from-vault (withdrawal-amount uint))
+    (begin
+        ;; TODO: Integrate with xReserve bridge to transfer USDCx to Ethereum
+        ;; For hackathon demo, we just update vault balances
+        (unwrap! (contract-call? .bridge-adapter complete-vault-withdrawal 
+                    tx-sender 
+                    withdrawal-amount) 
+            ERR-TRANSFER-FAILED)
+        
+        (print {
+            event: "vault-withdrawal-initiated",
+            creator: tx-sender,
+            amount: withdrawal-amount,
+            message: "Withdrawal completed - integrate xReserve bridge in production"
+        })
+        
+        (ok true)
+    )
+)

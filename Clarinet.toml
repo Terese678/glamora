@@ -5,6 +5,10 @@ authors = ['Timothy Terese Chimbiv']
 telemetry = true
 cache_dir = '.\.cache'
 requirements = []
+[contracts.bridge-adapter]
+path = 'contracts/bridge-adapter.clar'
+clarity_version = 3
+epoch = 3.0
 
 [contracts.glamora-nft]
 path = 'contracts/glamora-nft.clar'
@@ -15,7 +19,6 @@ epoch = 3.0
 path = 'contracts/main.clar'
 clarity_version = 3
 epoch = 3.0
-depends_on = ['storage-v2']
 
 [contracts.sbtc-token]
 path = 'contracts/sbtc-token.clar'

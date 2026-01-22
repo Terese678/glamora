@@ -58,14 +58,19 @@ plan:
     - id: 1
       transactions:
         - emulated-contract-publish:
-            contract-name: sip-009
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\sip-009.clar"
-            clarity-version: 3
-        - emulated-contract-publish:
             contract-name: storage-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\storage-v2.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: bridge-adapter
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\bridge-adapter.clar"
+            clarity-version: 3
+        - emulated-contract-publish:
+            contract-name: sip-009
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\sip-009.clar"
             clarity-version: 3
         - emulated-contract-publish:
             contract-name: glamora-nft

@@ -174,6 +174,213 @@
 ;; Track active listings per seller
 (define-map seller-listing-count principal uint)
 
+;;=============================================
+;; BRIDGE INTELLIGENCE MAPS 
+;;=============================================
+;; PAYMENT SOURCE TRACKER MAP
+;; 
+;; Every time someone makes a USDCx payment, bridge-adapter.clar calls a function here
+;; to update their payment history. We track both bridged amounts and native Stacks amounts
+;; separately so we can analyze payment patterns.
+(define-map payment-sources
+    { user: principal }  ;; The wallet address of the person making payments
+    {
+        total-bridged: uint,           ;; Total USDCx this user bridged from Ethereum (in microtokens)
+                                       ;; Example: 50000000 = $50 USD that they bridged over
+        
+        total-native: uint,            ;; Total USDCx they used from their Stacks wallet
+                                       ;; This is money they already had on Stacks, no bridging needed
+        
+        last-bridge-deposit: uint,     ;; The Stacks block height when they last bridged from Ethereum
+                                       ;; Helps us track recency of bridge usage
+        
+        bridge-count: uint,            ;; How many separate times they've bridged from Ethereum
+                                       ;; If someone bridges 10 times, they're a HEAVY bridge user
+        
+        preferred-source: uint         ;; Which payment method they use most often
+                                       ;; u1 = mostly bridge, u2 = mostly native Stacks wallet
+                                       ;; This helps optimize UX for their habits
+    }
+)
+
+;; CREATOR EARNINGS VAULT MAP
+;; 
+;; WHY THIS MAP EXISTS:
+;; The BIGGEST problem with crypto payments: GAS FEES eat your earnings!
+;; 
+;; Traditional flow (BAD):
+;; - Fan tips you $3 -> You withdraw to Ethereum -> Pay $5 in gas fees -> You LOSE $2!
+;; - Do this 20 times = You pay $100 in fees to withdraw $60 in earnings
+;; 
+;; Our vault solution:
+;; - Fan tips you $3, it goes into your VAULT (no withdrawal yet)
+;; - Vault accumulates: $3, $5, $7... over 2 weeks reaches $50
+;; - You withdraw ONCE when vault hits $50 then Pay $5 in fees and Keep $45!
+;; - Same 20 tips but you saved $95 in gas fees!
+;; 
+;; PERFECT FOR NIGERIAN CREATORS:
+;; If a user in Lagos earns $3-5 per tip but gas fees are $5-10, the vault ensures
+;; the user does not LOSE money by withdrawing too early. She waits until it makes financial sense.
+;; 
+;; HOW IT WORKS:
+;; Every tip and subscription payment gets added to the creator's vault automatically.
+;; When the vault balance reaches their threshold (default $50), we flag it as "ready to withdraw"
+;; They can then bridge that accumulated amount back to Ethereum in ONE transaction.
+(define-map creator-vaults
+    { creator: principal }  ;; The creator's wallet address
+    {
+        total-earned: uint,            ;; Lifetime total USDCx earned from ALL tips & subscriptions
+                                       ;; This number NEVER decreases - it's their career earnings
+                                       ;; Example: 200000000 = $200 USD earned total
+        
+        available-balance: uint,       ;; Current USDCx sitting in the vault waiting to be withdrawn
+                                       ;; This DOES decrease when they withdraw
+                                       ;; Example: 47000000 = $47 USD available now
+        
+        total-withdrawn: uint,         ;; Total USDCx they've already withdrawn to Ethereum
+                                       ;; Helps track withdrawal history
+                                       ;; Example: 150000000 = $150 USD withdrawn over time
+        
+        pending-withdrawal: uint,      ;; Amount currently flagged for bridge withdrawal
+                                       ;; When vault hits threshold, this gets set to available balance
+                                       ;; Example: 50000000 = $50 USD ready to bridge out
+        
+        withdrawal-threshold: uint,    ;; Minimum vault balance before auto-flagging withdrawal
+                                       ;; Default is $50 (50000000 microtokens)
+                                       ;; Creators can customize this based on their needs
+                                       ;; Someone earning a lot might set it to $100 or $200
+        
+        last-withdrawal-block: uint,   ;; Stacks block height when they last withdrew
+                                       ;; Helps calculate time between withdrawals
+        
+        withdrawal-count: uint         ;; How many times they've withdrawn total
+                                       ;; Helps us show stats like "You saved $X in gas fees 
+                                       ;; by using the vault instead of 50 separate withdrawals"
+    }
+)
+
+;; PAYMENT INTENTS MAP
+;; 
+;; WHY THIS MAP EXISTS:
+;; Modern apps let users say WHAT they want, then figure out HOW to do it.
+;; 
+;; THE PROBLEM:
+;; A user in New York sees an amazing fashion post from Lagos and wants to tip $5.
+;; But user has USDC on Ethereum, not USDCx on Stacks. What happens?
+;; 
+;; - App says "You don't have USDCx on Stacks, come back later"
+;; - user has to manually bridge
+;; - user forgets which post they wanted to tip
+;; - and the creator never gets the tip 
+;; 
+;; OUR WAY (great UX):
+;; - the user clicks "Tip $5"
+;; - We save their INTENT: "the user wants to tip creator of the fashion post $5 for post #47"
+;; - We show user: "Bridge $5 USDCx from Ethereum to Stacks" with clear instructions
+;; - When user bridge completes, we AUTO-EXECUTE her saved intent
+;; - user gets tipped automatically without user doing anything else
+;; - user gets notification: "user tip to creator was completed
+;; 
+;; HOW IT WORKS:
+;; When someone tries to tip but lacks funds, bridge-adapter creates an intent record here.
+;; The intent sits waiting. When bridge-adapter detects the user now has sufficient USDCx,
+;; it executes the intent automatically by calling main.clar's tip function.
+(define-map payment-intents
+    { intent-id: uint }  ;; Unique ID number for each intent (u1, u2, u3...)
+    {
+        user: principal,               ;; Who wants to make the payment
+                                       ;; Example: Sarah's wallet address
+        
+        intent-type: uint,             ;; What kind of payment is this?
+                                       ;; u1 = tip to creator for a post
+                                       ;; u2 = subscription to creator
+                                       ;; We use numbers instead of strings to save space
+        
+        target: principal,             ;; The creator who will receive the payment
+                                       ;; Example: Chioma's wallet address
+        
+        amount: uint,                  ;; How much USDCx to send (in microtokens)
+                                       ;; Example: 5000000 = $5 USD
+        
+        content-id: (optional uint),   ;; For tips: which post are they tipping?
+                                       ;; Example: (some u47) means post #47
+                                       ;; For subscriptions: none
+        
+        tier: (optional uint),         ;; For subscriptions: which tier? (Basic/Premium/VIP)
+                                       ;; For tips: none
+        
+        message: (optional (string-utf8 128)),  ;; Optional message with the payment
+                                                ;; Example: "Love your style!"
+        
+        created-block: uint,           ;; When the intent was created
+                                       ;; Helps us track how long it took to execute
+        
+        executed: bool,                ;; Has this intent been completed yet?
+                                       ;; false = still waiting for bridge
+                                       ;; true = payment completed successfully
+        
+        execution-block: (optional uint)  ;; When the intent was executed
+                                          ;; Helps calculate wait time
+                                          ;; Example: execution-block minus created-block = 
+                                          ;; how many blocks user waited
+    }
+)
+
+;; BRIDGE DEPOSIT TRACKING MAP
+;; 
+;; When someone bridges USDCx from Ethereum to Stacks, we need PROOF it happened.
+;; We can't just trust anyone claiming "I bridged $100" that's how scams work
+;; 
+;; THE SECURITY ISSUE:
+;; Without verification, someone could call a function and say "I just bridged $1000"
+;; when they actually didn't. Then they could use that fake balance to tip creators,
+;; and the creator thinks they got paid but the money never existed!
+;; 
+;; OUR SOLUTION:
+;; Every Ethereum to Stacks bridge creates a transaction on Ethereum's blockchain.
+;; That transaction has a unique HASH (like a fingerprint - impossible to fake).
+;; We store that hash here as PROOF the bridge really happened.
+;; 
+;; FUTURE INTEGRATION WITH xReserve:
+;; Circle's xReserve protocol will provide:
+;; 1. User's Ethereum address maps to their Stacks address
+;; 2. Amount of USDC they deposited on Ethereum
+;; 3. Ethereum transaction hash (the proof!)
+;; 4. Confirmation the deposit is valid
+;; 
+;; We save all that data here so bridge-adapter can verify deposits before crediting balances
+;; 
+;; HOW IT WORKS:
+;; When xReserve bridge completes:
+;; 1. User deposits USDC on Ethereum (creates eth-tx-hash)
+;; 2. xReserve mints USDCx on Stacks and tells us the deposit details
+;; 3. We store the record here with verified=true
+;; 4. Only THEN can the user use that USDCx in Glamora
+(define-map bridge-deposits
+    { deposit-id: uint }  ;; Unique ID for each bridge deposit (sequential: u1, u2, u3...)
+    {
+        user: principal,               ;; Stacks wallet that will receive the bridged USDCx
+                                       ;; This is their Stacks address, not Ethereum address
+        
+        amount: uint,                  ;; How much USDCx was bridged (in microtokens)
+                                       ;; Example: 50000000 = $50 USD bridged
+        
+        eth-tx-hash: (buff 32),        ;; The Ethereum transaction hash (32 bytes)
+                                       ;; This is the PROOF the bridge happened
+                                       ;; Format: 0x followed by 64 hexadecimal characters
+                                       ;; Example: 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
+        
+        deposit-block: uint,           ;; Stacks block height when we recorded this deposit
+                                       ;; Helps track timing and ordering of deposits
+        
+        verified: bool                 ;; Has this deposit been confirmed by xReserve?
+                                       ;; true = legitimate deposit, user can spend it
+                                       ;; false = pending verification, funds frozen until confirmed
+                                       ;; We start at true for hackathon demo, but in production
+                                       ;; this would start false and flip to true after xReserve confirms
+    }
+)
+
 ;;================================
 ;;; Private helper functions 
 ;;=====================================
@@ -332,6 +539,38 @@
 ;; Get number of active listings for a seller
 (define-read-only (get-seller-active-listings (seller principal))
     (default-to u0 (map-get? seller-listing-count seller))
+)
+
+;;===============================
+;; BRIDGE DATA QUERIES READ-ONLY
+;;===============================
+
+;; GET PAYMENT SOURCE STATS
+;; Shows where a specific user's USDCx payments came from
+;; Used by bridge-adapter to analyze payment patterns
+(define-read-only (get-payment-source (user principal))
+    (map-get? payment-sources { user: user })
+)
+
+;; GET CREATOR VAULT BALANCE
+;; Shows a creator's current vault status how much they've earned, how much available, etc.
+;; Used by creators to check "Can I withdraw yet?" and by frontend to display earnings
+(define-read-only (get-creator-vault (creator principal))
+    (map-get? creator-vaults { creator: creator })
+)
+
+;; GET PAYMENT INTENT DETAILS
+;; Looks up a specific payment intent by its ID number
+;; Used to check intent status: has it been executed? when was it created?
+(define-read-only (get-payment-intent (intent-id uint))
+    (map-get? payment-intents { intent-id: intent-id })
+)
+
+;; GET BRIDGE DEPOSIT RECORD
+;; Looks up a specific bridge deposit by its ID
+;; Used to verify deposits and track bridge history
+(define-read-only (get-bridge-deposit (deposit-id uint))
+    (map-get? bridge-deposits { deposit-id: deposit-id })
 )
 
 ;;===================================================
@@ -1134,4 +1373,209 @@
     (var-set contract-admin tx-sender)
 )
 
+;;===============================
+;; BRIDGE DATA UPDATES
+;; These are called by bridge-adapter.clar to manage bridge data
+;;===============================
+
+;; UPDATE PAYMENT SOURCE TRACKING
+;; 
+;; WHY THIS FUNCTION EXISTS:
+;; Every time someone makes a USDCx payment (tip or subscription), bridge-adapter needs to
+;; record WHERE that payment came from. Did they bridge it from Ethereum or use native Stacks USDCx?
+;; 
+;; This function updates the payment-sources map with the latest transaction info.
+;; It's like updating a customer's purchase history after every sale.
+;; 
+;; CALLED BY: bridge-adapter.clar's record-payment-source function
+;; 
+;; SECURITY:
+;; Only authorized contracts (bridge-adapter or main) can call this.
+;; Random users can't fake their payment history.
+(define-public (update-payment-source 
+    (user principal) 
+    (bridged-amount uint) 
+    (native-amount uint) 
+    (bridge-block uint) 
+    (bridge-count uint) 
+    (preferred-source uint))
+    (begin
+        ;; Security check: only authorized contracts can update payment tracking
+        ;; This prevents users from falsifying their payment history
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Save or update the user's payment source data
+        ;; If this is their first payment, creates new entry
+        ;; If they've paid before, updates their existing entry
+        (map-set payment-sources { user: user }
+            {
+                total-bridged: bridged-amount,
+                total-native: native-amount,
+                last-bridge-deposit: bridge-block,
+                bridge-count: bridge-count,
+                preferred-source: preferred-source
+            }
+        )
+        
+        (ok true)
+    )
+)
+
+;; UPDATE CREATOR VAULT
+;; 
+;; WHY THIS FUNCTION EXISTS:
+;; When creators receive tips or subscriptions, the money goes into their vault.
+;; When they withdraw, money comes out of the vault.
+;; This function handles both deposits to the vault and withdrawals from it.
+;; 
+;; It's like a bank updating your account balance after a deposit or withdrawal.
+;; 
+;; CALLED BY: bridge-adapter.clar's deposit-to-vault and complete-vault-withdrawal functions
+;; 
+;; SECURITY:
+;; Only authorized contracts can modify vault balances.
+;; Creators can't directly call this to fake their earnings.
+(define-public (update-creator-vault 
+    (creator principal) 
+    (total-earned uint) 
+    (available-balance uint) 
+    (total-withdrawn uint) 
+    (pending-withdrawal uint) 
+    (withdrawal-threshold uint) 
+    (last-withdrawal-block uint) 
+    (withdrawal-count uint))
+    (begin
+        ;; Security check: prevent unauthorized vault modifications
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Update the creator's vault with new balances
+        ;; This might be adding earnings (after a tip) or subtracting (after withdrawal)
+        (map-set creator-vaults { creator: creator }
+            {
+                total-earned: total-earned,
+                available-balance: available-balance,
+                total-withdrawn: total-withdrawn,
+                pending-withdrawal: pending-withdrawal,
+                withdrawal-threshold: withdrawal-threshold,
+                last-withdrawal-block: last-withdrawal-block,
+                withdrawal-count: withdrawal-count
+            }
+        )
+        
+        (ok true)
+    )
+)
+
+;; CREATE PAYMENT INTENT
+;; 
+;; WHY THIS FUNCTION EXISTS:
+;; When a user wants to tip but doesn't have USDCx yet, we need to save their intention
+;; so we can execute it later when they bridge funds.
+;; 
+;; This creates a new intent record in the payment-intents map.
+;; 
+;; CALLED BY: bridge-adapter.clar's create-tip-intent function
+(define-public (create-payment-intent 
+    (intent-id uint) 
+    (user principal) 
+    (intent-type uint) 
+    (target principal) 
+    (amount uint) 
+    (content-id (optional uint)) 
+    (tier (optional uint)) 
+    (message (optional (string-utf8 128))) 
+    (created-block uint))
+    (begin
+        ;; Only authorized contracts can create intents
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Save the new payment intent
+        ;; Starts with executed=false since it hasn't happened yet
+        (map-set payment-intents { intent-id: intent-id }
+            {
+                user: user,
+                intent-type: intent-type,
+                target: target,
+                amount: amount,
+                content-id: content-id,
+                tier: tier,
+                message: message,
+                created-block: created-block,
+                executed: false,
+                execution-block: none
+            }
+        )
+        
+        (ok true)
+    )
+)
+
+;; MARK INTENT AS EXECUTED
+;; 
+;; WHY THIS FUNCTION EXISTS:
+;; After a payment intent gets executed successfully, we need to mark it as complete
+;; so it doesn't get executed again (that would be double-paying!).
+;; 
+;; This updates the intent's executed status from false to true.
+;; 
+;; CALLED BY: bridge-adapter.clar's execute-payment-intent function
+(define-public (mark-intent-executed (intent-id uint) (execution-block uint))
+    (let
+        (
+            ;; Get the existing intent data
+            (intent-data (unwrap! (map-get? payment-intents { intent-id: intent-id }) ERR-INVALID-DATA))
+        )
+        
+        ;; Only authorized contracts can mark intents as executed
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Update the intent to mark it complete
+        ;; We keep all the original data but flip executed to true and record when it happened
+        (map-set payment-intents { intent-id: intent-id }
+            (merge intent-data {
+                executed: true,
+                execution-block: (some execution-block)
+            })
+        )
+        
+        (ok true)
+    )
+)
+
+;; RECORD BRIDGE DEPOSIT
+;; 
+;; WHY THIS FUNCTION EXISTS:
+;; When USDCx bridges from Ethereum via xReserve, we need to record that it happened.
+;; This saves the deposit details including the Ethereum transaction hash as proof.
+;; 
+;; In production, Circle's xReserve would call this (or we'd call it after verifying xReserve data).
+;; For hackathon demo, bridge-adapter calls this to simulate bridge deposits.
+;; 
+;; CALLED BY: bridge-adapter.clar's record-bridge-deposit function
+(define-public (save-bridge-deposit 
+    (deposit-id uint) 
+    (user principal) 
+    (amount uint) 
+    (eth-tx-hash (buff 32)) 
+    (deposit-block uint) 
+    (verified bool))
+    (begin
+        ;; Only authorized contracts can record deposits
+        ;; This prevents fake deposit records
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+        
+        ;; Save the bridge deposit record
+        (map-set bridge-deposits { deposit-id: deposit-id }
+            {
+                user: user,
+                amount: amount,
+                eth-tx-hash: eth-tx-hash,
+                deposit-block: deposit-block,
+                verified: verified
+            }
+        )
+        
+        (ok true)
+    )
+)
 

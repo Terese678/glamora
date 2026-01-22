@@ -364,3 +364,46 @@
         (ok token-id)
     )
 )
+
+;; CREATE NFT FASHION COLLECTION
+;; @desc: This function lets fashion creators start their own digital fashion collection on glamora
+;; Pay a 0.05 sBTC fee to create the collection
+;; @params:
+;; - collection-name: the name of your fashion collection
+;; - description: tell people what your collection is about 
+;; - max-editions: maximum number of NFTs this collection can have (minimum 1, maximum 10,000)
+;;(define-public (create-nft-collection 
+    ;;(collection-name (string-utf8 32)) 
+    ;;(description (string-utf8 256)) 
+    ;;(max-editions uint)) 
+    ;;(begin
+        ;; Make sure the person trying to create this collection is actually a registered creator
+        ;;(asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+
+        ;; Collect the 0.05 sBTC creation fee from the creator using sBTC token
+        ;;(unwrap! (contract-call? SBTC-CONTRACT transfer 
+          ;;  COLLECTION-CREATION-FEE 
+            ;;tx-sender 
+            ;;CONTRACT-ADDRESS 
+            ;;none) 
+            ;;ERR-TRANSFER-FAILED)
+
+        ;; Create the collection by calling the glamora-nft contract
+        ;;(unwrap! (contract-call? .glamora-nft create-fashion-collection 
+            ;;collection-name 
+            ;;description 
+            ;;max-editions) 
+            ;;ERR-STORAGE-FAILED)
+
+        ;; Log the event
+        ;;(print {
+            ;;event: "collection-created",
+            ;;creator: tx-sender,
+            ;;collection-name: collection-name,
+            ;;fee-paid: COLLECTION-CREATION-FEE,
+            ;;payment-token: "sBTC"
+        ;;})
+
+        ;;(ok true)
+    ;;)
+;;)
