@@ -2,7 +2,7 @@
 id: 0
 name: Testnet deployment
 network: testnet
-stacks-node: "https://api.testnet.hiro.so"
+stacks-node: "https://stacks-node-api.testnet.stacks.co"
 bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
 plan:
   batches:
@@ -10,16 +10,9 @@ plan:
       transactions:
         - contract-publish:
             contract-name: sbtc-token
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 45460
-            path: "contracts/sbtc-token.clar"
-            anchor-block-only: true
-            clarity-version: 1
-        - contract-publish:
-            contract-name: usdcx-token
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 45460
-            path: "contracts/usdcx-token.clar"
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 51000
+            path: contracts/sbtc-token.clar
             anchor-block-only: true
             clarity-version: 1
       epoch: "2.05"
@@ -27,30 +20,44 @@ plan:
       transactions:
         - contract-publish:
             contract-name: storage-v2
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 410360
-            path: "contracts/storage-v2.clar"
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 611470
+            path: contracts/storage-v2.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: bridge-adapter
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 200000
-            path: "contracts/bridge-adapter.clar"
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 231440
+            path: contracts/bridge-adapter.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: sip-009
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 11170
+            path: contracts/sip-009.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: glamora-nft
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 155230
-            path: "contracts/glamora-nft.clar"
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 171990
+            path: contracts/glamora-nft.clar
+            anchor-block-only: true
+            clarity-version: 3
+        - contract-publish:
+            contract-name: usdcx-token
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 43350
+            path: contracts/usdcx-token.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: main
-            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
-            cost: 597340
-            path: "contracts/main.clar"
+            expected-sender: ST1M4DSDK2B9DS4636J4H2PW8RBCDJ1J9VJFPYFNT
+            cost: 524430
+            path: contracts/main.clar
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.0"
