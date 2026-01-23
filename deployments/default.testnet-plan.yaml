@@ -10,7 +10,7 @@ plan:
       transactions:
         - contract-publish:
             contract-name: sbtc-token
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 51000
             path: contracts/sbtc-token.clar
             anchor-block-only: true
@@ -20,35 +20,35 @@ plan:
       transactions:
         - contract-publish:
             contract-name: storage-v2
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 611470
             path: contracts/storage-v2.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: bridge-adapter
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 231440
             path: contracts/bridge-adapter.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: glamora-nft
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 171990
             path: contracts/glamora-nft.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: usdcx-token
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 43350
             path: contracts/usdcx-token.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: main
-            expected-sender: ST3M2CKPMXGMFYSPR82WD1G7NXFQ5ZKVKF8DTTEKY
+            expected-sender: STKG4PJGRV56FZ9QNP58VV1R4PFEK5HF82AJYHD1
             cost: 524430
             path: contracts/main.clar
             anchor-block-only: true
