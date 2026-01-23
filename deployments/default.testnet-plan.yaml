@@ -10,7 +10,7 @@ plan:
       transactions:
         - contract-publish:
             contract-name: sbtc-token
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 51000
             path: contracts/sbtc-token.clar
             anchor-block-only: true
@@ -20,35 +20,35 @@ plan:
       transactions:
         - contract-publish:
             contract-name: storage-v2
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 611470
             path: contracts/storage-v2.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: bridge-adapter
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 231440
             path: contracts/bridge-adapter.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: glamora-nft
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 171990
             path: contracts/glamora-nft.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: usdcx-token
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 43350
             path: contracts/usdcx-token.clar
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: main
-            expected-sender: ST3EH7K32H1GNERP6DSBAV381S4HNQBTHSFBAENAN
+            expected-sender: ST1GH5TPG58D85QP3GBDTPGS22ZTBG1V32A8B8M7P
             cost: 524430
             path: contracts/main.clar
             anchor-block-only: true
