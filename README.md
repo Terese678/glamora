@@ -1,76 +1,111 @@
-# Glamora - Fashion creators getting paid in Bitcoin
+# Glamora - Fashion Creators Getting Paid in Bitcoin & Stablecoins
 
-**Fashion creators getting paid in Bitcoin. That's it.**
+**Direct payments. No middlemen taking 50% cuts.**
 
-I built this because fashion creators deserve better than platforms taking 30-50% cuts and holding their money for weeks. With Glamora, creators post their work, fans tip them Bitcoin (through sBTC), and creators keep 95%. Money moves instantly.
+As CEO of Dredge Classics, a fashion brand, I've watched platforms slash creator earnings with 30-50% fees and payment delays that stretch for weeks. I built Glamora on Stacks (Bitcoin Layer 2) so fashion creators can showcase their work, mint NFTs, and get paid directly in Bitcoin (sBTC) or USD stablecoins (USDCx). This solves the problem of lack of total control and ownership of product, plus the issue of platform charges. Here in Glamora, creators keep 95%, and only 5% goes to the platform. Payments are instant, and there's no platform holding your money hostage.
 
-## What This Actually Does
+---
 
-**For Fashion Creators:**
-- Post your runway shows, lookbooks, styling tutorials, whatever
-- People tip you in Bitcoin
-- You get 95%, I take 5% to keep the platform running
-- Fans can subscribe monthly to support you
-- You can create and sell NFT collections of your work
+## The Problem
 
-**For Fashion Fans:**
-- Follow creators you like
-- Tip them when they post something nice
-- Subscribe if you're a real fan
-- Collect their NFTs
+Traditional platforms take 30-50% of creator earnings. Payment processors add another 3-5%. Then you wait 2-4 weeks for payouts. By the time you get paid, currency fluctuations can eat another 10-20% if you're in Nigeria.
 
-## The Money Part
+**Fashion is an integral part of human existence, but creators are getting robbed.**
 
-Everything runs on sBTC (Bitcoin on Stacks). Why sBTC? It's Bitcoin-backed, not just another platform token.
+---
 
-- **Tips**: Start at 0.001 sBTC 
-- **Subscriptions**: Basic => 0.02 sBTC, Premium => 0.05 sBTC, and VIP => 0.06 sBTC monthly
-- **NFT Collections**: 0.05 sBTC to create 
-- **Platform fee**: 5% keeps the platform running
+## The Solution
 
-## The Tech
+Glamora runs on smart contracts on Stacks (Bitcoin's Layer 2):
 
-Built on Stacks (Bitcoin layer) using Clarity smart contracts:
+- **Direct tipping** in sBTC or USDCx
+- **5% platform fee** (we keep the lights on, you keep your money)
+- **Instant payments** (no waiting weeks)
+- **Vault system** accumulates small tips to save on gas fees
+- **NFT marketplace** for fashion collections
+- **Monthly subscriptions** for fan support
 
-- **main.clar** - Core logic (profiles, tips, subscriptions, follows)
-- **storage.clar** - Secure database with authorization controls
-- **glamora-nft.clar** - NFT functionality (SIP-009 compliant)
-- **sip-009.clar** - NFT standard trait
-- **sbtc-token.clar** - Mock Bitcoin for local testing
+With Glamora, tips go straight to creators. No delays, no deductions, no currency crashes eating your rent money.
 
-The content lives on IPFS for true decentralized storage.
+---
 
-## Running It Locally
+## Why Dual Payments (sBTC + USDCx)?
+
+**sBTC (Bitcoin on Stacks)**  
+For fans who want to support creators with Bitcoin. Long-term value.
+
+**USDCx (USDC on Stacks)**  
+For creators who need stable income TODAY. No volatility anxiety when rent is due.
+
+Creators choose what they accept. Fans pay with what they have.
+
+---
+
+## Technical Architecture
+
+Built on **Stacks** (Bitcoin Layer 2) using **Clarity** smart contracts:
+
+- **`main.clar`** - Core platform (profiles, tips, subscriptions, follows)
+- **`storage-v2.clar`** - Secure data storage with role-based access
+- **`bridge-adapter.clar`** - Vault system (accumulates tips, optimizes withdrawals)
+- **`glamora-nft.clar`** - NFT creation and marketplace (SIP-009 compliant)
+- **`sbtc-token.clar`** - Mock sBTC for testing
+- **`usdcx-token.clar`** - Mock USDCx for testing
+- **`sip-009.clar`** - NFT standard trait
+
+---
+
+## Current Status
+
+**Smart Contracts:** ✅ Deployed on Stacks testnet  
+**Web UI:** ⏳ In development  
+
+**Working Features (Smart Contracts):**
+- Dual payment system (sBTC + USDCx)
+- Creator and fan profiles
+- Tipping with vault accumulation
+- Monthly subscriptions
+- NFT minting and marketplace
+- Social following system
+
+**Planned Features:**
+- Web interface
+- IPFS content storage
+- Mobile app
+- Creator analytics
+- xReserve bridge integration (when mainnet launches)
+
+---
+
+## Run It Locally
+
 ```bash
 git clone https://github.com/Terese678/glamora.git
 cd glamora
-clarinet check    # Make sure nothing's broken
-clarinet test     # Run the tests
+clarinet check    # Verify contracts
+clarinet test     # Run tests
 ```
-If clarinet check passes, then it's fine
 
-## Current Features
-
-- Creator and public user profiles  
-- Content publishing across 5 fashion categories  
-- Bitcoin tipping system  
-- Monthly subscriptions  
-- NFT collection creation and minting  
-- Social following system  
-- IPFS content storage  
-- NFT marketplace (list/buy/sell)  
-
-## What's Next
-
-- Better discovery and search
-- Mobile-optimized interface
-- Creator analytics dashboard
-- Enhanced NFT features
+---
 
 ## Why I Built This
 
-I'm Timothy. I write Clarity contracts. I saw fashion creators getting exploited by web2 platforms and thought blockchain could actually solve this one. Direct payments between creators and fans, that's what crypto should enable.
+I'm Timothy Terese Chimbiv.
 
-Built by Timothy Terese Chimbiv  
-Version 3.0  
-https://github.com/Terese678 | Questions? 
+I've seen too many talented fashion creators quit because platforms take 50% of their earnings, payment processors take another 5%, and by the time the money arrives weeks later, currency volatility has eaten what's left.
+
+Blockchain was supposed to fix this. But high gas fees made it worse for small creators—they'd pay $5 in fees to withdraw $3 in tips.
+
+Glamora fixes both problems:
+1. **5% platform fee** (not 50%)
+2. **Vault system** accumulates tips to minimize gas fees
+3. **Dual payment options** (Bitcoin believers + stablecoin pragmatists)
+
+Fashion creators deserve better. This is better.
+
+---
+
+**Hackathon:** Programming USDCx on Stacks Builder Challenge (Jan 19-25, 2026)  
+**Version:** 3.0  
+**GitHub:** [github.com/Terese678/glamora](https://github.com/Terese678)
+

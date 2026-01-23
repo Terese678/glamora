@@ -10,40 +10,47 @@ plan:
       transactions:
         - contract-publish:
             contract-name: sbtc-token
-            expected-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
             cost: 45460
-            path: "contracts\\sbtc-token.clar"
+            path: "contracts/sbtc-token.clar"
+            anchor-block-only: true
+            clarity-version: 1
+        - contract-publish:
+            contract-name: usdcx-token
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 45460
+            path: "contracts/usdcx-token.clar"
             anchor-block-only: true
             clarity-version: 1
       epoch: "2.05"
     - id: 1
       transactions:
         - contract-publish:
-            contract-name: sip-009
-            expected-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
-            cost: 11170
-            path: "contracts\\sip-009.clar"
+            contract-name: storage-v2
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 410360
+            path: "contracts/storage-v2.clar"
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
-            contract-name: storage
-            expected-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
-            cost: 410360
-            path: "contracts\\storage.clar"
+            contract-name: bridge-adapter
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 200000
+            path: "contracts/bridge-adapter.clar"
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: glamora-nft
-            expected-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
             cost: 155230
-            path: "contracts\\glamora-nft.clar"
+            path: "contracts/glamora-nft.clar"
             anchor-block-only: true
             clarity-version: 3
         - contract-publish:
             contract-name: main
-            expected-sender: STC5KHM41H6WHAST7MWWDD807YSPRQKJ68T330BQ
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
             cost: 597340
-            path: "contracts\\main.clar"
+            path: "contracts/main.clar"
             anchor-block-only: true
             clarity-version: 3
       epoch: "3.0"
