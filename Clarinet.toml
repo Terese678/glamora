@@ -25,11 +25,6 @@ path = 'contracts/sbtc-token.clar'
 clarity_version = 1
 epoch = 2.05
 
-[contracts.sip-009]
-path = 'contracts/sip-009.clar'
-clarity_version = 3
-epoch = 3.0
-
 [contracts.storage-v2]
 path = 'contracts/storage-v2.clar'
 clarity_version = 3
@@ -47,3 +42,6 @@ strict = false
 trusted_sender = false
 trusted_caller = false
 callee_filter = false
+
+[project.deployment.testnet]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
