@@ -58,7 +58,7 @@
 (define-constant USD-TO-NIGERIAN-NAIRA-RATE u1500)
 
 ;; CONTRACT REFERENCES
-(define-constant STORAGE-CONTRACT .storage-v2)
+(define-constant STORAGE-CONTRACT .storage-v3)
 (define-constant MAIN-CONTRACT .main)
 (define-constant USDCX-CONTRACT .usdcx-token)
 
@@ -128,22 +128,22 @@
 ;; Shows where a user's payments came from (bridge vs native)
 ;; Example: "You bridged $200 from Ethereum, used $50 from Stacks wallet"
 (define-public (get-payment-source-stats (user principal))
-    (ok (contract-call? .storage-v2 get-payment-source user))
+    (ok (contract-call? .storage-v3 get-payment-source user))
 )
 
 ;; thid shows creator's vault status: earnings, available balance, withdrawals
 (define-public (get-vault-balance (creator principal))
-    (ok (contract-call? .storage-v2 get-creator-vault creator))
+    (ok (contract-call? .storage-v3 get-creator-vault creator))
 )
 
 ;; this function looks up a specific payment intent by ID number
 (define-public (get-intent-details (intent-id uint))
-    (ok (contract-call? .storage-v2 get-payment-intent intent-id))
+    (ok (contract-call? .storage-v3 get-payment-intent intent-id))
 )
 
 ;; this function looks up a specific bridge deposit by ID
 (define-public (get-deposit-details (deposit-id uint))
-    (ok (contract-call? .storage-v2 get-bridge-deposit deposit-id))
+    (ok (contract-call? .storage-v3 get-bridge-deposit deposit-id))
 )
 
 ;; this converts USDCx amount to Nigerian Naira value
@@ -163,7 +163,7 @@
 ;; This will show creator's earnings in USDCx, USD, and Nigerian Naira
 ;; it proves the stability benefit vs volatile Bitcoin
 (define-public (get-earnings-stability-report (creator principal))
-    (ok (match (contract-call? .storage-v2 get-creator-vault creator)
+    (ok (match (contract-call? .storage-v3 get-creator-vault creator)
         vault-data
             (let
                 (
@@ -224,7 +224,7 @@
                     bridge-count: u0,
                     preferred-source: u0
                 }
-                (contract-call? .storage-v2 get-payment-source user)))
+                (contract-call? .storage-v3 get-payment-source user)))
             
             ;; Add to bridged total if this was a bridge payment
             (new-total-bridged (if (is-eq source-type SOURCE-BRIDGE)
@@ -256,7 +256,7 @@
                   ERR-INVALID-DATA)
         
         ;; Save updated payment source data
-        (unwrap! (contract-call? .storage-v2 update-payment-source
+        (unwrap! (contract-call? .storage-v3 update-payment-source
                     user
                     new-total-bridged
                     new-total-native
@@ -281,7 +281,7 @@
     (let
         (
             ;; Check if vault already exists
-            (existing-vault (contract-call? .storage-v2 get-creator-vault creator))
+            (existing-vault (contract-call? .storage-v3 get-creator-vault creator))
         )
         
         ;; Only main.clar can initialize vaults
@@ -291,7 +291,7 @@
         (asserts! (is-none existing-vault) ERR-INVALID-DATA)
         
         ;; Create vault with all values starting at zero
-        (unwrap! (contract-call? .storage-v2 update-creator-vault
+        (unwrap! (contract-call? .storage-v3 update-creator-vault
                     creator
                     u0  ;; total-earned
                     u0  ;; available-balance
@@ -312,7 +312,7 @@
     (let
         (
             ;; Get creator's current vault data
-            (vault-data (unwrap! (contract-call? .storage-v2 get-creator-vault creator) 
+            (vault-data (unwrap! (contract-call? .storage-v3 get-creator-vault creator) 
                                 ERR-VAULT-NOT-FOUND))
             
             ;; Calculate new balances after adding this deposit
@@ -336,7 +336,7 @@
         (asserts! (> amount u0) ERR-INVALID-AMOUNT)
         
         ;; Update vault balances in storage
-        (unwrap! (contract-call? .storage-v2 update-creator-vault
+        (unwrap! (contract-call? .storage-v3 update-creator-vault
                     creator
                     new-total-earned
                     new-available-balance
@@ -379,7 +379,7 @@
     (let
         (
             ;; Get current vault data
-            (vault-data (unwrap! (contract-call? .storage-v2 get-creator-vault creator) 
+            (vault-data (unwrap! (contract-call? .storage-v3 get-creator-vault creator) 
                                 ERR-VAULT-NOT-FOUND))
             
             ;; Calculate balances after withdrawal
@@ -396,7 +396,7 @@
                   ERR-INSUFFICIENT-BALANCE)
         
         ;; Update vault in storage
-        (unwrap! (contract-call? .storage-v2 update-creator-vault
+        (unwrap! (contract-call? .storage-v3 update-creator-vault
                     creator
                     (get total-earned vault-data)  ;; Total earned never changes
                     new-available-balance
@@ -424,7 +424,7 @@
 (define-public (update-withdrawal-threshold (creator principal) (new-threshold uint))
     (let
         (
-            (vault-data (unwrap! (contract-call? .storage-v2 get-creator-vault creator) 
+            (vault-data (unwrap! (contract-call? .storage-v3 get-creator-vault creator) 
                                 ERR-VAULT-NOT-FOUND))
         )
         
@@ -435,7 +435,7 @@
         (asserts! (>= new-threshold u10000000) ERR-INVALID-AMOUNT)
         
         ;; Update vault with new threshold
-        (unwrap! (contract-call? .storage-v2 update-creator-vault
+        (unwrap! (contract-call? .storage-v3 update-creator-vault
                     creator
                     (get total-earned vault-data)
                     (get available-balance vault-data)
@@ -475,7 +475,7 @@
         (asserts! (> tip-amount u0) ERR-INVALID-AMOUNT)
         
         ;; Save intent with all details
-        (unwrap! (contract-call? .storage-v2 create-payment-intent
+        (unwrap! (contract-call? .storage-v3 create-payment-intent
                     intent-id
                     user
                     INTENT-TIP
@@ -523,7 +523,7 @@
         (asserts! (> subscription-price u0) ERR-INVALID-AMOUNT)
         
         ;; Save subscription intent
-        (unwrap! (contract-call? .storage-v2 create-payment-intent
+        (unwrap! (contract-call? .storage-v3 create-payment-intent
                     intent-id
                     user
                     INTENT-SUBSCRIPTION
@@ -554,7 +554,7 @@
     (let
         (
             ;; Get the intent details
-            (intent-data (unwrap! (contract-call? .storage-v2 get-payment-intent intent-id) 
+            (intent-data (unwrap! (contract-call? .storage-v3 get-payment-intent intent-id) 
                                  ERR-INTENT-NOT-FOUND))
         )
         
@@ -565,7 +565,7 @@
         (asserts! (not (get executed intent-data)) ERR-INTENT-ALREADY-EXECUTED)
         
         ;; Mark intent as executed
-        (unwrap! (contract-call? .storage-v2 mark-intent-executed 
+        (unwrap! (contract-call? .storage-v3 mark-intent-executed 
                     intent-id 
                     stacks-block-height)
                 ERR-STORAGE-FAILED)
@@ -604,7 +604,7 @@
         (asserts! (> amount u0) ERR-INVALID-AMOUNT)
         
         ;; Save deposit with Ethereum tx hash as proof
-        (unwrap! (contract-call? .storage-v2 save-bridge-deposit
+        (unwrap! (contract-call? .storage-v3 save-bridge-deposit
                     deposit-id
                     user
                     amount

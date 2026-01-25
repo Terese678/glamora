@@ -1,0 +1,5 @@
+[network]
+name = "testnet"
+
+[network.deployment]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"

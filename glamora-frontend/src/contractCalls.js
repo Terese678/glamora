@@ -8,7 +8,11 @@ import {
   NFT_FUNCTIONS,
   CONTENT_CATEGORIES,
   SUBSCRIPTION_TIERS,
-  MIN_TIP_AMOUNT
+  MIN_TIP_AMOUNT,
+  USDCX_FUNCTIONS,
+  BRIDGE_FUNCTIONS,
+  USDCX_DECIMALS,
+  MIN_USDCX_TIP
 } from './contractConfig';
 
 import {
@@ -1074,3 +1078,208 @@ export const updatePublicUserProfile = async (userAddress, displayName, bio) => 
   }
 };
 
+/**
+ * MINT TEST USDCx
+ * Mints test USDCx tokens for development/testing
+ * TESTNET ONLY - This function calls the mint function in usdcx-token
+ * which should be disabled or removed in production
+ * 
+ * @param {string} userAddress - Recipient's Stacks address
+ * @param {number} amount - Amount in micro-USDCx (6 decimals)
+ * @returns {Promise<Object>} - Transaction result
+ */
+export const mintTestUSDCx = async (userAddress, amount) => {
+  try {
+    console.log('=== MINTING TEST USDCx ===');
+    console.log('Recipient:', userAddress);
+    console.log('Amount (micro-USDCx):', amount);
+    console.log('Amount (USDCx):', amount / 1000000);
+    
+    const { openContractCall } = await import('@stacks/connect');
+    const { AnchorMode, PostConditionMode, uintCV, principalCV } = await import('@stacks/transactions');
+    
+    const functionArgs = [
+      uintCV(amount),              // Amount to mint
+      principalCV(userAddress)     // Recipient address
+    ];
+    
+    console.log('Function args prepared:', functionArgs);
+    
+    const txOptions = {
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'usdcx-token',
+      functionName: 'mint',
+      functionArgs: functionArgs,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
+      anchorMode: AnchorMode.Any,
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => {
+        console.log('SUCCESS: Test USDCx minted successfully!');
+        console.log('Transaction ID:', data.txId);
+        console.log('Explorer:', `https://explorer.hiro.so/txid/${data.txId}?chain=testnet`);
+      },
+      onCancel: () => {
+        console.log('ERROR: Mint cancelled by user');
+        throw new Error('Mint transaction cancelled');
+      }
+    };
+    
+    console.log('Opening wallet for mint approval...');
+    await openContractCall(txOptions);
+    
+    // Return success - the actual txId is logged in onFinish callback
+    return { success: true };
+    
+  } catch (error) {
+    console.error('Error minting test USDCx:', error);
+    throw error;
+  }
+};
+
+/**
+ * GET USDCx BALANCE
+ */
+export const getUSDCxBalance = async (userAddress) => {
+  try {
+    console.log('Fetching USDCx balance for:', userAddress);
+    
+    const { cvToJSON } = await import('@stacks/transactions');
+    
+    const result = await fetchCallReadOnlyFunction({
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'usdcx-token',
+      functionName: 'get-balance',
+      functionArgs: [Cl.principal(userAddress)],
+      senderAddress: userAddress,
+    });
+    
+    const jsonResult = cvToJSON(result);
+    const balance = jsonResult.value?.value || jsonResult.value || 0;
+    console.log('USDCx Balance:', balance / 1000000, 'USDCx');
+    
+    return parseInt(balance);
+    
+  } catch (error) {
+    console.error('Error fetching USDCx balance:', error);
+    return 0;
+  }
+};
+
+/**
+ * GET VAULT INFO
+ */
+export const getVaultInfo = async (userAddress) => {
+  try {
+    console.log('Fetching vault info for:', userAddress);
+    
+    const { cvToJSON } = await import('@stacks/transactions');
+    
+    const result = await fetchCallReadOnlyFunction({
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'bridge-adapter',
+      functionName: 'get-vault-info',
+      functionArgs: [Cl.principal(userAddress)],
+      senderAddress: userAddress,
+    });
+    
+    const jsonResult = cvToJSON(result);
+    return jsonResult.value || null;
+    
+  } catch (error) {
+    console.error('Error fetching vault info:', error);
+    return null;
+  }
+};
+
+/**
+ * GET BATCH STATS
+ */
+export const getBatchStats = async () => {
+  try {
+    console.log('Fetching batch stats...');
+    
+    const { cvToJSON } = await import('@stacks/transactions');
+    
+    const result = await fetchCallReadOnlyFunction({
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'bridge-adapter',
+      functionName: 'get-batch-stats',
+      functionArgs: [],
+      senderAddress: CONTRACT_CONFIG.address,
+    });
+    
+    const jsonResult = cvToJSON(result);
+    return jsonResult.value || {
+      'total-batches': 0,
+      'total-savings': 0,
+      'total-transactions': 0
+    };
+    
+  } catch (error) {
+    console.error('Error fetching batch stats:', error);
+    return {
+      'total-batches': 0,
+      'total-savings': 0,
+      'total-transactions': 0
+    };
+  }
+};
+
+/**
+ * TIP WITH USDCx
+ */
+export const tipWithUSDCx = async (senderAddress, recipientAddress, amountInMicroUSDCx) => {
+  try {
+    console.log('=== SENDING USDCx TIP ===');
+    console.log('Sender:', senderAddress);
+    console.log('Recipient:', recipientAddress);
+    console.log('Amount (micro-USDCx):', amountInMicroUSDCx);
+    
+    const { openContractCall } = await import('@stacks/connect');
+    const { AnchorMode, PostConditionMode, Cl } = await import('@stacks/transactions');
+    
+    // CORRECT: (amount, sender, recipient, memo)
+    const functionArgs = [
+      Cl.uint(amountInMicroUSDCx),              // amount
+      Cl.principal(senderAddress),               // sender
+      Cl.principal(recipientAddress),            // recipient
+      Cl.none()                                  // memo (optional, pass none)
+    ];
+    
+    const txOptions = {
+      network: getNetwork(),
+      contractAddress: CONTRACT_CONFIG.address,
+      contractName: 'usdcx-token',
+      functionName: 'transfer',
+      functionArgs: functionArgs,
+      appDetails: {
+        name: 'Glamora',
+        icon: window.location.origin + '/logo.png',
+      },
+      anchorMode: AnchorMode.Any,
+      postConditionMode: PostConditionMode.Allow,
+      onFinish: (data) => {
+        console.log('✅ TIP SUCCESS!');
+        console.log('TX ID:', data.txId);
+        console.log('Explorer: https://explorer.hiro.so/txid/' + data.txId + '?chain=testnet');
+      },
+      onCancel: () => {
+        throw new Error('User cancelled');
+      }
+    };
+    
+    await openContractCall(txOptions);
+    return { success: true };
+    
+  } catch (error) {
+    console.error('❌ Error:', error);
+    throw error;
+  }
+};

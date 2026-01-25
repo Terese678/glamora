@@ -5,12 +5,33 @@ authors = ['Timothy Terese Chimbiv']
 telemetry = true
 cache_dir = '.\.cache'
 requirements = []
+
+[contracts.sip-009]
+path = 'contracts/sip-009.clar'
+clarity_version = 3
+epoch = 3.0
+
+[contracts.sbtc-token]
+path = 'contracts/sbtc-token.clar'
+clarity_version = 1
+epoch = 2.05
+
+[contracts.usdcx-token]
+path = 'contracts/usdcx-token.clar'
+clarity_version = 3
+epoch = 3.0
+
+[contracts.storage-v3]
+path = 'contracts/storage-v2.clar'
+clarity_version = 3
+epoch = 3.0
+
 [contracts.bridge-adapter]
 path = 'contracts/bridge-adapter.clar'
 clarity_version = 3
 epoch = 3.0
 
-[contracts.glamora-nft]
+[contracts.glamora-nft-v2]
 path = 'contracts/glamora-nft.clar'
 clarity_version = 3
 epoch = 3.0
@@ -20,20 +41,6 @@ path = 'contracts/main.clar'
 clarity_version = 3
 epoch = 3.0
 
-[contracts.sbtc-token]
-path = 'contracts/sbtc-token.clar'
-clarity_version = 1
-epoch = 2.05
-
-[contracts.storage-v2]
-path = 'contracts/storage-v2.clar'
-clarity_version = 3
-epoch = 3.0
-
-[contracts.usdcx-token]
-path = 'contracts/usdcx-token.clar'
-clarity_version = 3
-epoch = 3.0
 [repl.analysis]
 passes = ['check_checker']
 
@@ -44,4 +51,26 @@ trusted_caller = false
 callee_filter = false
 
 [project.deployment.testnet]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+# Explicit testnet deployment for each contract
+[project.deployment.testnet.contracts.sip-009]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.sbtc-token]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.usdcx-token]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.storage-v3]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.bridge-adapter]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.glamora-nft-v2]
+deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+
+[project.deployment.testnet.contracts.main]
 deployer = "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"

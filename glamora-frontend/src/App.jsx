@@ -9,6 +9,9 @@ import WalletConnect from './WalletConnect';
 import Profile from './Profile';
 import * as contractCalls from './contractCalls';
 
+import UsdcxTipping from './components/UsdcxTipping';
+
+
 function App() {
   // State variables: they store information that changes as users interact
   // its used to keep track of what's happening in the app
@@ -651,6 +654,9 @@ const handleCreatePublicUserProfile = async (e) => {
         )}
         <button onClick={() => navigateTo('marketplace')}>Marketplace</button>
         <button onClick={() => navigateTo('tip')}>Send Tip</button>
+        {userAddress && userProfile && (
+          <button onClick={() => navigateTo('usdcx-tipping')}>USDCx Tipping</button>
+        )}
       </nav>
 
       {/* Main Content Area - Changes based on which button was clicked */}
@@ -1316,6 +1322,14 @@ const handleCreatePublicUserProfile = async (e) => {
               </div>
             )}
           </div>
+        )}
+        
+        {/* USDCX TIPPING VIEW */}
+        {currentView === 'usdcx-tipping' && (
+          <UsdcxTipping 
+            userAddress={userAddress} 
+            userProfile={userProfile}
+          />
         )}
       </main>
 

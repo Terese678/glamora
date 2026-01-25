@@ -1,0 +1,694 @@
+/**
+ * UsdcxTipping.css - Styling for USDCx Tipping Component
+ * 
+ * DESIGN SYSTEM:
+ * - Glassmorphism effects (frosted glass look)
+ * - Gold accent color (#ffd700)
+ * - Dark theme with gradient backgrounds
+ * - Smooth animations and transitions
+ * - Mobile-responsive design
+ */
+
+/* ============================================================
+   CONTAINER & LAYOUT
+   ============================================================ */
+
+.usdcx-tipping-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  animation: fadeIn 0.6s ease-in;
+}
+
+/* Fade-in animation for smooth entry */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================================
+   HEADER SECTION
+   ============================================================ */
+
+.tipping-header {
+  text-align: center;
+  margin-bottom: 40px;
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.05));
+  padding: 30px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.tipping-header h2 {
+  font-size: 2.5em;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 10px;
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+}
+
+.header-subtitle {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1em;
+}
+
+/* ============================================================
+   BALANCE CARD
+   ============================================================ */
+
+.balance-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.balance-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.balance-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.balance-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.balance-amount {
+  color: #ffd700;
+  font-size: 2em;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.refresh-btn {
+  background: rgba(255, 215, 0, 0.1);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  color: #ffd700;
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9em;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.2);
+  transform: scale(1.05);
+  box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   VAULT STATISTICS CARD (User's Personal Stats)
+   ============================================================ */
+
+.vault-stats-card {
+  background: linear-gradient(135deg, rgba(138, 43, 226, 0.1), rgba(75, 0, 130, 0.1));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(138, 43, 226, 0.3);
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 32px rgba(138, 43, 226, 0.2);
+}
+
+.vault-stats-card h3 {
+  color: #ba55d3;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+.vault-benefit {
+  text-align: center;
+  color: #ffd700;
+  font-weight: bold;
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 215, 0, 0.1);
+  border-radius: 8px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ============================================================
+   PLATFORM STATISTICS CARD (Global Metrics)
+   ============================================================ */
+
+.platform-stats-card {
+  background: linear-gradient(135deg, rgba(0, 191, 255, 0.1), rgba(30, 144, 255, 0.1));
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 191, 255, 0.3);
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 32px rgba(0, 191, 255, 0.2);
+}
+
+.platform-stats-card h3 {
+  color: #00bfff;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+/* ============================================================
+   STATS GRID (Used in both stat cards)
+   ============================================================ */
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+}
+
+.stat-item {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.stat-item:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.stat-label {
+  display: block;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.stat-value {
+  display: block;
+  color: #fff;
+  font-size: 1.8em;
+  font-weight: bold;
+}
+
+.stat-value.success {
+  color: #00ff88;
+  text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+/* ============================================================
+   TIPPING FORM
+   ============================================================ */
+
+.tipping-form-container {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.tipping-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   PAYMENT METHOD SELECTOR
+   ============================================================ */
+
+.payment-method-selector {
+  margin-bottom: 30px;
+}
+
+.payment-method-selector h3 {
+  color: #ffd700;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.method-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.method-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.method-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 5px 20px rgba(255, 215, 0, 0.2);
+}
+
+.method-btn.active {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: #ffd700;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.method-icon {
+  font-size: 2em;
+}
+
+.method-name {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #fff;
+}
+
+.method-badge {
+  font-size: 0.85em;
+  color: #ffd700;
+  background: rgba(255, 215, 0, 0.1);
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+/* ============================================================
+   FORM GROUPS
+   ============================================================ */
+
+.form-group {
+  margin-bottom: 25px;
+}
+
+.form-group label {
+  display: block;
+  color: #ffd700;
+  margin-bottom: 10px;
+  font-weight: 500;
+  font-size: 1em;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 15px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 215, 0, 0.3);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 1em;
+  transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #ffd700;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+}
+
+.form-group input:disabled,
+.form-group select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-group small {
+  display: block;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.85em;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* ============================================================
+   INNOVATION HIGHLIGHT BOX
+   ============================================================ */
+
+.innovation-highlight {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 165, 0, 0.1));
+  border: 2px solid rgba(255, 215, 0, 0.3);
+  border-radius: 15px;
+  padding: 20px;
+  margin-bottom: 25px;
+  display: flex;
+  gap: 15px;
+  align-items: flex-start;
+  animation: glow 3s infinite;
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+  }
+}
+
+.highlight-icon {
+  font-size: 2.5em;
+  flex-shrink: 0;
+}
+
+.highlight-content h4 {
+  color: #ffd700;
+  margin-bottom: 10px;
+  font-size: 1.1em;
+}
+
+.highlight-content p {
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ============================================================
+   SUBMIT BUTTON
+   ============================================================ */
+
+.submit-btn {
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  border: none;
+  border-radius: 12px;
+  color: #000;
+  font-size: 1.1em;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 20px rgba(255, 215, 0, 0.4);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.submit-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(255, 215, 0, 0.6);
+  background: linear-gradient(135deg, #ffed4e, #ffd700);
+}
+
+.submit-btn:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================================
+   MESSAGE DISPLAY
+   ============================================================ */
+
+.message-display {
+  margin-top: 20px;
+  padding: 15px 20px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 500;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-display.success {
+  background: rgba(0, 255, 136, 0.15);
+  border: 1px solid rgba(0, 255, 136, 0.3);
+  color: #00ff88;
+}
+
+.message-display.error {
+  background: rgba(255, 68, 68, 0.15);
+  border: 1px solid rgba(255, 68, 68, 0.3);
+  color: #ff4444;
+}
+
+/* ============================================================
+   STX NOTICE
+   ============================================================ */
+
+.stx-notice {
+  text-align: center;
+  padding: 30px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  margin-top: 20px;
+}
+
+.stx-notice p {
+  color: rgba(255, 255, 255, 0.7);
+  margin: 10px 0;
+  font-size: 1.1em;
+}
+
+/* ============================================================
+   INFO SECTION (Benefits)
+   ============================================================ */
+
+.info-section {
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 215, 0, 0.02));
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 20px;
+  padding: 30px;
+  margin-top: 30px;
+}
+
+.info-section h3 {
+  color: #ffd700;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 1.8em;
+}
+
+.benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.benefit-item {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 15px;
+  padding: 25px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.benefit-item:hover {
+  transform: translateY(-5px);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 215, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(255, 215, 0, 0.2);
+}
+
+.benefit-icon {
+  font-size: 3em;
+  display: block;
+  margin-bottom: 15px;
+}
+
+.benefit-item h4 {
+  color: #ffd700;
+  margin-bottom: 10px;
+  font-size: 1.2em;
+}
+
+.benefit-item p {
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ============================================================
+   RESPONSIVE DESIGN
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .usdcx-tipping-container {
+    padding: 20px 15px;
+  }
+
+  .tipping-header h2 {
+    font-size: 2em;
+  }
+
+  .balance-amount {
+    font-size: 1.5em;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .method-buttons {
+    grid-template-columns: 1fr;
+  }
+
+  .benefits-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .balance-info {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .refresh-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .tipping-header h2 {
+    font-size: 1.6em;
+  }
+
+  .balance-amount {
+    font-size: 1.3em;
+  }
+
+  .stat-value {
+    font-size: 1.4em;
+  }
+
+  .submit-btn {
+    font-size: 1em;
+    padding: 15px;
+  }
+}
+
+/* ============================================================
+   BALANCE ACTIONS - Multiple Buttons Layout
+   ============================================================ */
+
+.balance-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* ============================================================
+   MINT TEST BUTTON - Development Only
+   ============================================================ */
+
+.mint-test-btn {
+  padding: 8px 16px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  color: #ffc107;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  font-weight: 500;
+}
+
+.mint-test-btn:hover:not(:disabled) {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.5);
+  transform: translateY(-2px);
+}
+
+.mint-test-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   BALANCE UPDATE ANIMATION - Celebration Effect
+   ============================================================ */
+
+@keyframes balanceUpdate {
+  0% { 
+    background: rgba(76, 175, 80, 0.3);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  50% { 
+    background: rgba(76, 175, 80, 0.5);
+    transform: scale(1.08);
+    box-shadow: 0 0 20px 5px rgba(76, 175, 80, 0.4);
+  }
+  100% { 
+    background: rgba(76, 175, 80, 0);
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
+
+.balance-amount.updated {
+  animation: balanceUpdate 1s ease-out;
+  border-radius: 8px;
+  padding: 8px 16px;
+  display: inline-block;
+}
+
+/* Success message pulse */
+@keyframes successPulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+.message-display.success {
+  animation: successPulse 2s ease-in-out;
+}
