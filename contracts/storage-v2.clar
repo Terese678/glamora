@@ -8,8 +8,6 @@
 ;; keeps all fashion posts and their details, it remembers who follows who, tracks all tip transactions 
 ;; between fans and creators and only the "main contract" can write new data here
 
-;; Version 3.0
-
 ;; author: "Timothy Terese Chimbiv"
 ;;=======================================================
 

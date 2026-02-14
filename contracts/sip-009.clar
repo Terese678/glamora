@@ -8,8 +8,6 @@
 ;; and any platform that displays NFTs,
 ;; without following this standard, it won't be recognized or tradeable.
 
-;; version: 3.0
-
 ;; author: "Timothy Terese Chimbiv"
 
 ;;=======================================

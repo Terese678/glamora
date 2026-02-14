@@ -7,8 +7,6 @@
 ;; trading, and managing fashion-related NFTs. It Implements the SIP-009 standard to ensure
 ;; compatibility with NFT marketplaces and wallets. 
 
-;; version: 3.0
-
 ;; author: "Timothy Terese Chimbiv"
 
 ;; Let's implement the trait we defined
