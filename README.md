@@ -104,8 +104,7 @@ Glamora fixes both problems:
 Fashion creators deserve better. This is better.
 
 ---
-
-**Hackathon:** Programming USDCx on Stacks Builder Challenge (Jan 19-25, 2026)  
+ 
 **Version:** 3.0  
 **GitHub:** [github.com/Terese678/glamora](https://github.com/Terese678)
 
