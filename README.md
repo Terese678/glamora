@@ -2,7 +2,7 @@
 
 **Direct payments. No middlemen taking 50% cuts.**
 
-As CEO of Dredge Classics, a fashion brand, I've watched platforms slash creator earnings with 30-50% fees and payment delays that stretch for weeks. I built Glamora on Stacks (Bitcoin Layer 2) so fashion creators can showcase their work, mint NFTs, and get paid directly in Bitcoin (sBTC) or USD stablecoins (USDCx). This solves the problem of lack of total control and ownership of product, plus the issue of platform charges. Here in Glamora, creators keep 95%, and only 5% goes to the platform. Payments are instant, and there's no platform holding your money hostage.
+As CEO of Dredge Classics, a fashion brand, I've watched platforms slash creator earnings with 20-80% fees and payment delays that stretch for weeks. I built Glamora on Stacks (Bitcoin Layer 2) so fashion creators can showcase their work, mint NFTs, and get paid directly in Bitcoin (sBTC) or USD stablecoins (USDCx). This solves the problem of lack of total control and ownership of product, plus the issue of platform charges. Here in Glamora, creators keep 95%, and only 5% goes to the platform. Payments are instant, and there's no platform holding your money hostage.
 
 ---
 

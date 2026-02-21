@@ -1,9 +1,5 @@
 ;;=======================================
 ;; title: sbtc-token
-;; version: 3.0
-
-;; title: sbtc-token
-;; version: 3.0
 
 ;; summary: Mock sBTC Token for Testnet Development
 

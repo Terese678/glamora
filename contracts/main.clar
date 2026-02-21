@@ -18,8 +18,6 @@
 ;; from shoes to accessories, and directly support creators they love by sending sBTC tips with personal messages
 ;; staying connected with the latest fashion styles and designs
 
-;; Version 3.0
-
 ;; Author: "Timothy Terese Chimbiv"
 ;;====================================
 
