@@ -121,36 +121,70 @@
 ;;=======================================
 ;; ADMIN FUNCTIONS
 ;;=======================================
+
 ;; SET AUTHORIZED CALLER
-;; @desc: this function allows the admin to change who is authorized to create collections
-;; only the admin (person who deployed the contract) can do this
-;; @param: new-caller - the wallet address of the new person/contract to authorize
+;; @desc: Allows the admin to change which contract is authorized to create collections.
+;; Built with a safety check to prevent the admin from accidentally locking themselves out.
+;; Only the admin (the person who deployed this contract) can call this.
+;; @param: new-caller - the wallet address of the new authorized contract or person
 (define-public (set-authorized-caller (new-caller principal))
     (let
         (
-            ;; let's save the current authorized caller before we change it
-            ;; this is just for the event log so we can see who had permission before
+            ;; Save the current authorized caller so we can log who had permission before
             (old-caller (var-get authorized-caller))
         )
         (begin
-            ;; check only the admin can change who is authorized
-            ;; if you're not the admin, this will stop and return and error
+            ;; Only the admin can change who is authorized
+            ;; If you are not the admin, this stops immediately and returns an error
             (asserts! (is-eq tx-sender (var-get admin)) ERR-NOT-AUTHORIZED)
 
-            ;; update the new authorized caller
+            ;; Safety check: prevent setting authorized-caller to the contract itself
+            ;; If this happened, no real person could ever call admin functions again
+            ;; This is a permanent lockout protection
+            (asserts! (not (is-eq new-caller (as-contract tx-sender))) ERR-NOT-AUTHORIZED)
+
+            ;; Safety check: prevent setting authorized-caller to a blank/dead address
+            ;; The admin must always retain the ability to recover control
+            (asserts! (not (is-eq new-caller (var-get admin))) ERR-NOT-AUTHORIZED)
+
+            ;; if all checks passed then update the authorized caller
             (var-set authorized-caller new-caller)
 
-            ;; record the change so everyone can see what happened
+            ;; Record the change on-chain so everyone can see what happened and when
             (print {
                 event: "authorized-caller-updated",
-                old-caller: old-caller,           ;; who had permissions before
-                new-caller: new-caller,           ;; who have permissions now
-                updated-by: tx-sender             ;; Who made this change (the admin)
+                old-caller: old-caller,     ;; who had permission before
+                new-caller: new-caller,     ;; who has permission now
+                updated-by: tx-sender       ;; the admin who made this change
             })
 
-            ;; Success: return true
             (ok true)
         )
+    )
+)
+
+;; RESET AUTHORIZED CALLER (EMERGENCY RECOVERY)
+;; @desc: this is the emergency function that resets the authorized-caller back to the admin.
+;; Use this if the authorized-caller was ever set to a wrong or broken contract address.
+;; Think of this as a master key, it always works as long as the admin wallet is safe.
+;; Only the admin can call this.
+(define-public (reset-authorized-caller)
+    (begin
+        ;; Only the admin can trigger an emergency reset
+        (asserts! (is-eq tx-sender (var-get admin)) ERR-NOT-AUTHORIZED)
+
+        ;; Reset authorized-caller back to the admin address
+        ;; this guarantees the admin always has a recovery path
+        (var-set authorized-caller (var-get admin))
+
+        ;; Record the reset on-chain for full transparency
+        (print {
+            event: "authorized-caller-reset",
+            reset-to: (var-get admin),  ;; the address it was reset to
+            reset-by: tx-sender         ;; the admin who triggered the reset
+        })
+
+        (ok true)
     )
 )
 
@@ -179,7 +213,7 @@
 ;; @desc: This function will get the web link where NFT details are stored like getting a website URL
 ;; If the NFT exists by the number that was inputted (token-id) 
 ;; then it returns IPFS hash and the wallets can show the picture
-(define-public (get-token-uri (token-id uint))
+(define-read-only (get-token-uri (token-id uint))
     (ok (match (contract-call? .storage-v3 get-nft-metadata token-id) 
         nft-data (some (concat "ipfs://" (get image-ipfs-hash nft-data)))
         none))
@@ -205,6 +239,10 @@
         ;; Check that the person transfering (must be the tx-sender) is the owner of the
         ;; NFT so people don't transfer NFT they don't own
         (asserts! (is-eq tx-sender sender) ERR-NOT-NFT-OWNER)
+
+         ;; ensure that sender and recipient are not the same address
+        ;; this will prevent burning NFTs by sending to yourself accidentally
+        (asserts! (not (is-eq sender recipient)) ERR-TRANSFER-FAILED)
 
         ;;Transfer NFT to recipient and unwrap! stops the function's execution 
         ;; and returns an error if transfer fails
@@ -233,7 +271,10 @@
 ;; - collection-name: name of the collection 
 ;; - description: what the collection is all about 
 ;; - max-editions: the maximum number of NFTs that can be in this collection 
-(define-public (create-fashion-collection (collection-name (string-utf8 32)) (description (string-utf8 256)) (max-editions uint))
+(define-public (create-fashion-collection 
+    (collection-name (string-utf8 32)) 
+    (description (string-utf8 256)) 
+    (max-editions uint))
     (let
         (
             ;; get the available collection number to know what we have currently

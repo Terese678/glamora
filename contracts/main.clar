@@ -409,6 +409,18 @@
 ) ;; this function will ask storage.clar for info about a collection like its name, 
 ;; creator, description using its ID number like #1, #2, #3
 
+
+;; GET NFT MARKETPLACE STATISTICS
+;; This function is temporarily disabled - read-only functions cannot make cross-contract calls in Clarity.
+;; 
+;; FIX PLAN (next iteration):
+;; Convert to a public function that queries storage-v3 directly,
+;; since storage-v3 already tracks total-nft-listings, total-nft-sales,
+;; and marketplace-revenue. The NFT contract stats (total-nfts-minted,
+;; next-collection-id) will be exposed via storage reads instead of
+;; cross-contract calls.
+;;
+;; TODO: Rebuild as (define-public (get-nft-marketplace-stats)) in next iteration
 ;; GET NFT MARKETPLACE STATISTICS
 ;; @desc: This function shows you everything about the NFT marketplace on Glamora in one simple call
 ;;(define-read-only (get-nft-marketplace-stats)
@@ -712,7 +724,12 @@
 ;; - content-hash: A unique 32-byte fingerprint of your content file for verification
 ;; - ipfs-hash: The IPFS address where your actual photo/video is stored (optional, can be none)
 ;; - category: What type of content this is (1=Fashion Show, 2=Lookbook, 3=Tutorial, 4=Behind-the-Scenes, 5=Review)
-(define-public (publish-content (title (string-utf8 64)) (description (string-utf8 256)) (content-hash (buff 32)) (ipfs-hash (optional (string-ascii 64))) (category uint))
+(define-public (publish-content 
+    (title (string-utf8 64)) 
+    (description (string-utf8 256)) 
+    (content-hash (buff 32)) 
+    (ipfs-hash (optional (string-ascii 64))) 
+    (category uint))
     (let
         (
             ;; I need to get the ID number that this new post will get
@@ -1194,39 +1211,39 @@
 ;; - collection-name: the name of your fashion collection
 ;; - description: tell people what your collection is about 
 ;; - max-editions: maximum number of NFTs this collection can have (minimum 1, maximum 10,000)
-;;(define-public (create-nft-collection 
-    ;;(collection-name (string-utf8 32)) 
-    ;;(description (string-utf8 256)) 
-    ;;(max-editions uint)) 
-    ;;(begin
+(define-public (create-nft-collection 
+    (collection-name (string-utf8 32)) 
+    (description (string-utf8 256)) 
+    (max-editions uint)) 
+    (begin
         ;; Make sure the person trying to create this collection is actually a registered creator
-        ;;(asserts! (is-some (contract-call? .storage get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
+        (asserts! (is-some (contract-call? .storage-v3 get-creator-profile tx-sender)) ERR-PROFILE-NOT-FOUND)
 
         ;; Collect the 0.05 sBTC creation fee from the creator using sBTC token
-        ;;(unwrap! (contract-call? SBTC-CONTRACT transfer 
-          ;;  COLLECTION-CREATION-FEE 
-            ;;tx-sender 
-            ;;CONTRACT-ADDRESS 
-            ;;none) 
-            ;;ERR-TRANSFER-FAILED)
+        (unwrap! (contract-call? .sbtc-token transfer 
+            COLLECTION-CREATION-FEE 
+            tx-sender 
+            CONTRACT-ADDRESS 
+            none) 
+            ERR-TRANSFER-FAILED)
 
         ;; Create the collection by calling the glamora-nft contract
-        ;;(unwrap! (contract-call? .glamora-nft-v2 create-fashion-collection 
-            ;;collection-name 
-            ;;description 
-            ;;max-editions) 
-            ;;ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .glamora-nft-v2 create-fashion-collection 
+            collection-name 
+            description 
+            max-editions) 
+            ERR-STORAGE-FAILED)
 
         ;; Log the event
-        ;;(print {
-            ;;event: "collection-created",
-            ;;creator: tx-sender,
-            ;;collection-name: collection-name,
-            ;;fee-paid: COLLECTION-CREATION-FEE,
-            ;;payment-token: "sBTC"
-        ;;})
+        (print {
+            event: "collection-created",
+            creator: tx-sender,
+            collection-name: collection-name,
+            fee-paid: COLLECTION-CREATION-FEE,
+            payment-token: "sBTC"
+        })
 
-        ;;(ok true)
-    ;;)
-;;)
+        (ok true)
+    )
+)
 
