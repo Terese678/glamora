@@ -767,7 +767,8 @@
 ;; - tipper principal                   
 ;; - creator principal                  
 ;; - tip-amount uint                    
-;; - message (string-utf8 128))         
+;; - message (string-utf8 128)
+;; - payment-token uint         
 (define-public (record-tip 
     (content-id uint) 
     (tipper principal) 
@@ -783,13 +784,23 @@
             ;; Get creator's profile to update their total tips received
             (creator-profile (unwrap! (map-get? creator-profiles creator) ERR-USER-NOT-FOUND))
             
-            ;; Get tipper's profile to update their total tips sent
-            (tipper-profile (unwrap! (map-get? creator-profiles tipper) ERR-USER-NOT-FOUND))
+            ;; Glamora has two user types: creators and public fans.
+            ;; We check both profile maps to find which type this tipper is
+            ;; if we only checked creator-profiles, public fans could never tip that would be a "bug"
+            (tipper-creator-profile (map-get? creator-profiles tipper))
+            (tipper-public-profile (map-get? public-user-profiles tipper))
         )
 
         ;; AUTHORIZATION CHECK
         ;; Ensure only the main contract can record tips
         (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; TIPPER VALIDATION
+        ;; The tipper must have at least one type of profile on Glamora.
+        ;; if they have neither, they are not a registered user and cannot tip
+        (asserts! 
+            (or (is-some tipper-creator-profile) (is-some tipper-public-profile)) 
+            ERR-USER-NOT-FOUND)
 
         ;; TIP RECORD CREATION
         ;; Save permanent record of this tip transaction
@@ -797,8 +808,8 @@
             creator: creator,                   ;; Who received the tip
             tip-amount: tip-amount,             ;; How much was tipped
             tip-date: stacks-block-height,      ;; When tip was sent
-            message: message,                    ;; Tipper's message
-            payment-token: payment-token        ;; specifies which token was used (u1=sBTC, u2=USDCx)
+            message: message,                   ;; Tipper's message
+            payment-token: payment-token        ;; Which token was used (u1=sBTC, u2=USDCx)
         })
 
         ;; CONTENT STATISTICS UPDATE
@@ -807,7 +818,7 @@
             (merge content-data {
                 ;; Increment tip count by 1
                 tip-count: (+ (get tip-count content-data) u1),
-                ;; Add tip amount to post's total tips
+                ;; Add tip amount to post's total tips received
                 total-tips-received: (+ (get total-tips-received content-data) tip-amount)
             }))
 
@@ -820,12 +831,23 @@
             }))
 
         ;; TIPPER PROFILE UPDATE
-        ;; Update tipper's total tips sent across all their activity
-        (map-set creator-profiles tipper 
-            (merge tipper-profile {
-                ;; Add this tip to tipper's lifetime tip spending
-                total-tips-sent: (+ (get total-tips-sent tipper-profile) tip-amount)
-            }))
+        ;; Glamora has two types of users: creators and public fans
+        ;; We check which type this tipper is, then update the right profile.
+        ;; This ensures both creators and fans can tip without errors.
+        (if (is-some tipper-creator-profile)
+            ;; this tipper is a CREATOR - update their creator profile tip count
+            (map-set creator-profiles tipper
+                (merge (unwrap! tipper-creator-profile ERR-USER-NOT-FOUND) {
+                    total-tips-sent: (+ (get total-tips-sent 
+                        (unwrap! tipper-creator-profile ERR-USER-NOT-FOUND)) tip-amount)
+                }))
+            ;; This tipper is a PUBLIC USER - update their public profile tip count
+            (map-set public-user-profiles tipper
+                (merge (unwrap! tipper-public-profile ERR-USER-NOT-FOUND) {
+                    total-tips-sent: (+ (get total-tips-sent 
+                        (unwrap! tipper-public-profile ERR-USER-NOT-FOUND)) tip-amount)
+                }))
+        )
 
         (ok true)  ;; Return success status
     )
@@ -1361,8 +1383,8 @@
 ;; @desc: this will executes once during deployment to initialize authorization
 ;; it will prevent the problem where storage needs to authorize main,
 ;; but main needs authorization to call storage functions
-;; @sets: authorized-contract and contract-admin to deployer's address
-;; @executes: one-time during contract deployment
+;; it sets authorized-contract and contract-admin to deployer's address
+;; and executes one-time during contract deployment
 (begin
     ;; Set deployer as initial authorized contract
     (var-set authorized-contract tx-sender)
