@@ -166,6 +166,19 @@
     sale-date: uint
 })
 
+;; NFT ROYALTY REGISTRY
+;; When an NFT is first minted, we record the original creator here permanently.
+;; No matter how many times the NFT changes hands, this record never changes.
+;; Every secondary sale checks this map to know who to pay the royalty to.
+(define-map nft-royalties
+    uint  ;; token-id
+    {
+        creator: principal,        ;; the riginal creator who always receives royalties
+        royalty-percentage: uint,  ;; their royalty cut (8%)
+        total-royalties-earned: uint ;; lifetime royalties earned from this NFT
+    }
+)
+
 ;; Track number of times each NFT has been sold
 (define-map nft-sale-count uint uint)
 
@@ -527,6 +540,12 @@
 ;; Get NFT sale history entry
 (define-read-only (get-nft-sale-history (token-id uint) (sale-index uint))
     (map-get? nft-sale-history {token-id: token-id, sale-index: sale-index})
+)
+
+;; GET NFT ROYALTY INFO
+;; Will return the original creator and royalty details for any NFT
+(define-read-only (get-nft-royalty (token-id uint))
+    (map-get? nft-royalties token-id)
 )
 
 ;; Get total number of sales for an NFT
@@ -1268,6 +1287,48 @@
         ;; Decrement seller's active listing count
         (map-set seller-listing-count seller (- seller-count u1))
         
+        (ok true)
+    )
+)
+
+;; REGISTER NFT ROYALTY
+;; Called when an NFT is first minted to permanently record the original creator.
+;; This record can never be changed royalties always go to the original creator.
+(define-public (register-nft-royalty (token-id uint) (creator principal) (royalty-percentage uint))
+    (begin
+        ;; Only authorized contracts can register royalties
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; Save the original creator permanently against this token ID
+        (map-set nft-royalties token-id {
+            creator: creator,
+            royalty-percentage: royalty-percentage,
+            total-royalties-earned: u0
+        })
+
+        (ok true)
+    )
+)
+
+;; UPDATE ROYALTY EARNINGS
+;; Called after every secondary sale to update the creator's lifetime royalty earnings
+(define-public (update-royalty-earnings (token-id uint) (royalty-amount uint))
+    (let
+        (
+            ;; Get the current royalty record for this NFT
+            (royalty-data (unwrap! (map-get? nft-royalties token-id) ERR-NOT-AUTHORIZED))
+        )
+
+        ;; Only authorized contracts can update royalty earnings
+        (asserts! (is-authorized) ERR-NOT-AUTHORIZED)
+
+        ;; Add the new royalty amount to the creator's lifetime total for this NFT
+        (map-set nft-royalties token-id
+            (merge royalty-data {
+                total-royalties-earned: (+ (get total-royalties-earned royalty-data) royalty-amount)
+            })
+        )
+
         (ok true)
     )
 )

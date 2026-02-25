@@ -16,18 +16,25 @@
 ;; CONSTANTS
 ;;========================================
 
-(define-constant ERR-NOT-NFT-OWNER (err u501)) ;; The caller is not the owner of this NFT
-(define-constant ERR-TRANSFER-FAILED (err u502)) ;; When sBTC or NFT transfer operation fails
+(define-constant ERR-NOT-NFT-OWNER (err u501))      ;; The caller is not the owner of this NFT
+(define-constant ERR-TRANSFER-FAILED (err u502))    ;; When sBTC or NFT transfer operation fails
+(define-constant ERR-NOT-AUTHORIZED (err u503))     ;; The caller is not authorized, ;; the error triggers if the caller is not the .main contract
+(define-constant ERR-INVALID-COLLECTION-NAME (err u504)) ;; when an invalid collection name is provided, ;; either the collection name is empty or too short
+ (define-constant ERR-INVALID-INPUT (err u505))     ;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
+(define-constant ERR-STORAGE-FAILED (err u506))     ;; When saving data to storage contract fails
+(define-constant ERR-NOT-LISTED (err u507))         ;; NFT is not listed for sale
+(define-constant ERR-ALREADY-LISTED (err u508))     ;; NFT is already listed for sale
+(define-constant ERR-WRONG-PRICE (err u509))        ;; Payment amount doesn't match listing price
+(define-constant ERR-CANNOT-BUY-OWN-NFT (err u510)) ;; Seller cannot buy their own NFT
 
-(define-constant ERR-NOT-AUTHORIZED (err u503)) ;; The caller is not authorized, 
-;; the error triggers if the caller is not the .main contract
-
-(define-constant ERR-INVALID-COLLECTION-NAME (err u504)) ;; when an invalid collection name is provided, 
-;; either the collection name is empty or too short
- 
-(define-constant ERR-INVALID-INPUT (err u505)) ;; its for general invalid inputs like empty description or max-editions out of range (0 or >10,000)
-
-(define-constant ERR-STORAGE-FAILED (err u506)) ;; When saving data to storage contract fails
+;; ROYALTY SYSTEM
+;; Every time an NFT resells on the marketplace, the original creator
+;; automatically earns 8% of the sale price and this for FOREVER
+;; This means creators benefit from the long term success of their work,
+;; not just the first sale.
+(define-constant ROYALTY-PERCENTAGE u8)            ;; 8% royalty to original creator on every resale
+(define-constant PLATFORM-MARKETPLACE-FEE u5)      ;; 5% platform fee on every sale
+(define-constant SELLER-PERCENTAGE u87)            ;; 87% to seller (100% - 8% royalty - 5% platform)
 
 (define-constant COLLECTION-CREATION-FEE u5000000) ;; Collection creation fee 0.05 sBTC
 
@@ -389,6 +396,15 @@
         
         ;; increment total NFTs minted on platform
         (var-set total-nfts-minted token-id)
+
+        ;; REGISTER ROYALTY
+        ;; Record the original creator permanently so they earn 8% on every future resale.
+        ;; This runs once at mint time and can never be changed or overwritten.
+        (unwrap! (contract-call? .storage-v3 register-nft-royalty 
+            token-id 
+            tx-sender 
+            ROYALTY-PERCENTAGE) 
+            ERR-STORAGE-FAILED)
         
         ;; log the mint event
         (print {
