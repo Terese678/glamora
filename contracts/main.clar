@@ -119,6 +119,9 @@
 (define-constant CATEGORY-BEHIND-SCENES u4)           ;; category 4 showing how the fashionists do what they do 
 (define-constant CATEGORY-REVIEW u5)                  ;; category 5 talking about fashion clothes or accessories, product review
 
+;; NFT Royalty percentage paid to original creator on every secondary sale
+(define-constant ROYALTY-PERCENTAGE u8)   ;; 8% to original creator forever
+
 ;;=================================
 ;; Data Variables 
 ;;=================================
@@ -1187,7 +1190,6 @@
 (define-public (withdraw-from-vault (withdrawal-amount uint))
     (begin
         ;; TODO: Integrate with xReserve bridge to transfer USDCx to Ethereum
-        ;; For hackathon demo, we just update vault balances
         (unwrap! (contract-call? .bridge-adapter complete-vault-withdrawal 
                     tx-sender 
                     withdrawal-amount) 
@@ -1247,3 +1249,182 @@
     )
 )
 
+;;===============================================
+;; NFT MARKETPLACE
+;;===============================================
+
+;; LIST NFT FOR SALE
+;; @desc: This function puts an NFT up for sale on the Glamora marketplace.
+;; The seller sets their price and the NFT becomes available for anyone to buy.
+;; @params:
+;; - token-id: The unique ID of the NFT you want to sell
+;; - price: How much sBTC you want for it (minimum 0.01 sBTC)
+(define-public (list-nft-for-sale (token-id uint) (price uint))
+    (begin
+        ;; Make sure the person listing owns this NFT
+        (asserts! (is-eq (some tx-sender) 
+            (unwrap! (contract-call? .glamora-nft-v2 get-owner token-id) ERR-TRANSFER-FAILED)) 
+            ERR-UNAUTHORIZED)
+
+        ;; Price must meet the minimum listing requirement (0.01 sBTC)
+        (asserts! (is-valid-listing-price price) ERR-INVALID-AMOUNT)
+
+        ;; Save the listing in storage
+        (unwrap! (contract-call? .storage-v3 create-nft-listing 
+            token-id 
+            tx-sender 
+            price) 
+            ERR-STORAGE-FAILED)
+
+        ;; Update total listings counter
+        (var-set total-nft-listings (+ (var-get total-nft-listings) u1))
+
+        (print {
+            event: "nft-listed",
+            token-id: token-id,
+            seller: tx-sender,
+            price: price
+        })
+
+        (ok true)
+    )
+)
+
+;; CANCEL NFT LISTING
+;; @desc: This function removes an NFT from the marketplace.
+;; Only the seller who listed it can cancel the listing.
+;; @params:
+;; - token-id: The unique ID of the NFT to delist
+(define-public (cancel-nft-listing (token-id uint))
+    (let
+        (
+            ;; Get the listing details to verify ownership
+            (listing-data (unwrap! 
+                (contract-call? .storage-v3 get-nft-listing token-id) 
+                ERR-CONTENT-NOT-FOUND))
+        )
+
+        ;; Only the person who listed it can cancel it
+        (asserts! (is-eq tx-sender (get seller listing-data)) ERR-UNAUTHORIZED)
+
+        ;; Remove the listing from storage
+        (unwrap! (contract-call? .storage-v3 cancel-nft-listing token-id) ERR-STORAGE-FAILED)
+
+        ;; Decrease total listings counter
+        (var-set total-nft-listings (- (var-get total-nft-listings) u1))
+
+        (print {
+            event: "nft-listing-cancelled",
+            token-id: token-id,
+            seller: tx-sender
+        })
+
+        (ok true)
+    )
+)
+
+;; BUY NFT
+;; @desc: This is the core marketplace purchase function.
+;; When someone buys an NFT, the payment splits three ways automatically:
+;; - Original creator gets 8% royalty (forever, on every resale)
+;; - Seller gets 87% of the sale price
+;; - Platform keeps 5% to sustain operations
+;; @params:
+;; - token-id: The unique ID of the NFT to purchase
+(define-public (buy-nft (token-id uint))
+    (let
+        (
+            ;; Get listing details price and who is selling
+            (listing-data (unwrap! 
+                (contract-call? .storage-v3 get-nft-listing token-id) 
+                ERR-CONTENT-NOT-FOUND))
+
+            ;; Get royalty info who is the original creator
+            (royalty-data (unwrap! 
+                (contract-call? .storage-v3 get-nft-royalty token-id) 
+                ERR-CONTENT-NOT-FOUND))
+
+            ;; Extract key values
+            (seller (get seller listing-data))
+            (sale-price (get price listing-data))
+            (original-creator (get creator royalty-data))
+
+            ;; PAYMENT CALCULATIONS
+            ;; Every sale splits three ways: creator royalty, seller share, platform fee
+            (royalty-amount (/ (* sale-price ROYALTY-PERCENTAGE) u100))      ;; 8% to original creator
+            (platform-fee (/ (* sale-price MARKETPLACE-FEE-PERCENTAGE) u100)) ;; 5% to platform
+            (seller-amount (- sale-price (+ royalty-amount platform-fee)))    ;; 87% to seller
+        )
+
+        ;; Buyer cannot be the seller
+        (asserts! (not (is-eq tx-sender seller)) ERR-INVALID-INPUT)
+
+        ;; Listing must be active
+        (asserts! (get active listing-data) ERR-INVALID-INPUT)
+
+        ;; PAYMENT STEP 1: Pay original creator their 8% royalty
+        ;; This is the magic of the royalty system creator earns forever
+        (unwrap! (contract-call? .sbtc-token transfer
+            royalty-amount
+            tx-sender
+            original-creator
+            none)
+            ERR-TRANSFER-FAILED)
+
+        ;; PAYMENT STEP 2: Pay seller their 87% share
+        (unwrap! (contract-call? .sbtc-token transfer
+            seller-amount
+            tx-sender
+            seller
+            none)
+            ERR-TRANSFER-FAILED)
+
+        ;; PAYMENT STEP 3: Pay platform its 5% fee
+        (unwrap! (contract-call? .sbtc-token transfer
+            platform-fee
+            tx-sender
+            CONTRACT-ADDRESS
+            none)
+            ERR-TRANSFER-FAILED)
+
+        ;; TRANSFER THE NFT to the buyer
+        (unwrap! (contract-call? .glamora-nft-v2 transfer
+            token-id
+            seller
+            tx-sender)
+            ERR-TRANSFER-FAILED)
+
+        ;; Update royalty earnings record in storage
+        (unwrap! (contract-call? .storage-v3 update-royalty-earnings
+            token-id
+            royalty-amount)
+            ERR-STORAGE-FAILED)
+
+        ;; Record the completed sale in storage
+        (unwrap! (contract-call? .storage-v3 complete-nft-sale
+            token-id
+            tx-sender
+            sale-price)
+            ERR-STORAGE-FAILED)
+
+        ;; Update platform statistics
+        (var-set total-nft-sales (+ (var-get total-nft-sales) u1))
+        (var-set total-nft-listings (- (var-get total-nft-listings) u1))
+        (var-set marketplace-revenue (+ (var-get marketplace-revenue) platform-fee))
+        (var-set platform-fees-earned (+ (var-get platform-fees-earned) platform-fee))
+
+        (print {
+            event: "nft-sold",
+            token-id: token-id,
+            seller: seller,
+            buyer: tx-sender,
+            sale-price: sale-price,
+            royalty-paid: royalty-amount,
+            royalty-recipient: original-creator,
+            seller-received: seller-amount,
+            platform-fee: platform-fee
+        })
+
+        (ok true)
+    )
+)
