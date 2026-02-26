@@ -412,48 +412,31 @@
 ) ;; this function will ask storage.clar for info about a collection like its name, 
 ;; creator, description using its ID number like #1, #2, #3
 
-
 ;; GET NFT MARKETPLACE STATISTICS
-;; This function is temporarily disabled - read-only functions cannot make cross-contract calls in Clarity.
-;; 
-;; FIX PLAN (next iteration):
-;; Convert to a public function that queries storage-v3 directly,
-;; since storage-v3 already tracks total-nft-listings, total-nft-sales,
-;; and marketplace-revenue. The NFT contract stats (total-nfts-minted,
-;; next-collection-id) will be exposed via storage reads instead of
-;; cross-contract calls.
-;;
-;; TODO: Rebuild as (define-public (get-nft-marketplace-stats)) in next iteration
-;; GET NFT MARKETPLACE STATISTICS
-;; @desc: This function shows you everything about the NFT marketplace on Glamora in one simple call
-;;(define-read-only (get-nft-marketplace-stats)
-   ;; {
-     ;;   ;; This will check how many individual fashion NFTs exist on the platform
-       ;; total-nfts: (contract-call? .glamora-nft-v2 get-total-nfts-minted),
-        ;;next-collection-id: (contract-call? .glamora-nft-v2 get-next-collection-id),
-
-        ;; AUTHORIZATION
-        ;; The wallet address allowed to create new fashion collections
-        ;;authorized-caller: (contract-call? .glamora-nft-v2 get-authorized-caller),
-        
-        ;; The wallet address of the person who owns and controls the NFT system
-        ;;admin: (contract-call? .glamora-nft-v2 get-admin),
-
-        ;; COLLECTION LIMITS
-        ;; The smallest number of NFTs one can put in one collection
-        ;; every fashion collection needs at least 1 item so we don't have empty collections
-        ;;min-collection-size: u1,
-
-        ;; The biggest number of NFTs allowed in one collection
-        ;; max 10,000 items per collection to keep it manageable
-        ;;max-collection-size: u10000,
- 
-        ;;collection-creation-fee: u5000000 ;; 0.05 sBTC
-    ;;}
-;;)
-;; ==========================
-;; This is what the flow looks like => user calls main, main queries storage, and storage returns the result for the user
-;; ============================
+;; This function gives you a full picture of everything happening on the Glamora NFT marketplace.
+;; How many NFTs exist, how many are for sale right now, how many have been sold,
+;; how much money the marketplace has made, and what the fees and rules are.
+;; at a glance it shows you the outlook of the entire marketplace
+(define-public (get-nft-marketplace-stats)
+    (let
+        (
+            ;; Pull live NFT stats directly from the NFT contract
+            (total-nfts-minted (contract-call? .glamora-nft-v2 get-total-nfts-minted))
+            (next-collection-id (contract-call? .glamora-nft-v2 get-next-collection-id))
+        )
+        (ok {
+            total-nfts-minted: total-nfts-minted,
+            total-collections: (- next-collection-id u1),
+            collection-creation-fee: COLLECTION-CREATION-FEE,
+            total-active-listings: (var-get total-nft-listings),
+            total-sales-completed: (var-get total-nft-sales),
+            marketplace-revenue: (var-get marketplace-revenue),
+            royalty-percentage: ROYALTY-PERCENTAGE,
+            marketplace-fee: MARKETPLACE-FEE-PERCENTAGE,
+            min-listing-price: MIN-LISTING-PRICE
+        })
+    )
+)
 
 ;;=================================
 ;; Private Functions 
