@@ -122,6 +122,19 @@
 ;; NFT Royalty percentage paid to original creator on every secondary sale
 (define-constant ROYALTY-PERCENTAGE u8)   ;; 8% to original creator forever
 
+;; CLARITY 4: CONTRACT AUTHENCITY VERIFICATION
+;; These are the SHA-512/256 fingerprints of our trusted contracts.
+;; contract-hash? checks that the contract we are calling matches
+;; these exact fingerprints before any sensitive operation runs.
+;; if someone swaps in a fake contract, the hash won't match and
+;; the transaction reverts immediately. It ensures you're tslking the exact contract deployed
+;;
+;; IMPORTANT NOTE: Update these values after every redeployment to testnet.
+;; Run: clarinet contract-hash <contract-name> to get the correct hash.
+;; Leave as empty buffer during development, populated before mainnet.
+(define-constant STORAGE-V3-HASH 0xbfdcddcae06f8b6dc68dde9cdf82d335cfee9600c7b46244e41ad4b334100802)
+(define-constant GLAMORA-NFT-HASH 0x518947381096e1555450add6503a8aa0a5a2ed6419b2c09bd9a22b897dafb88b)
+
 ;;=================================
 ;; Data Variables 
 ;;=================================
@@ -531,6 +544,34 @@
 ;; Check if subscription is currently active (not expired)
 (define-private (is-subscription-active (expiry-block uint))
     (> expiry-block stacks-block-height)
+)
+
+;;===============================
+;; CLARITY 4: CONTRACT VERIFICATION
+;;===============================
+
+;; VERIFY TRUSTED CONTRACTS
+;; @desc: this hecks that storage-v3 and glamora-nft-v2 are the exact
+;; contracts we deployed not impostors. It uses Clarity 4's contract-hash?
+;; to compare the live contract fingerprint against our stored constants.
+;; This runs before any marketplace operation that moves funds or NFTs.
+(define-private (verify-trusted-contracts)
+    (let
+        (
+            ;; Get the live fingerprint of storage-v3
+            (storage-hash (unwrap! (contract-hash? .storage-v3) (err u900)))
+            
+            ;; Get the live fingerprint of glamora-nft-v2
+            (nft-hash (unwrap! (contract-hash? .glamora-nft-v2) (err u901)))
+        )
+
+        ;; Compare live fingerprints against our trusted constants
+        ;; if either doesn't match, something is wrong - revert immediately
+        (asserts! (is-eq storage-hash STORAGE-V3-HASH) (err u902))
+        (asserts! (is-eq nft-hash GLAMORA-NFT-HASH) (err u903))
+
+        (ok true)
+    )
 )
 
 ;; =====================================
@@ -1344,6 +1385,11 @@
 
         ;; Listing must be active
         (asserts! (get active listing-data) ERR-INVALID-INPUT)
+
+        ;; CLARITY 4: VERIFY CONTRACT INTEGRITY BEFORE MOVING ANY FUNDS
+        ;; Confirm we are talking to the exact contracts we trust.
+        ;; If either contract has been tampered with, stop everything here.
+        (try! (verify-trusted-contracts))
 
         ;; PAYMENT STEP 1: Pay original creator their 8% royalty
         ;; This is the magic of the royalty system creator earns forever
