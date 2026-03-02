@@ -103,8 +103,8 @@
 ;; NFT Marketplace
 (define-constant MIN-LISTING-PRICE u1000000)           ;; 0.01 sBTC minimum listing price
 
-(define-constant SUBSCRIPTION-DURATION u4320)           ;; Subscription duration in blocks (approximately 30 days)
-                                                        ;; Stacks, 144 blocks/day 144 multiply by 30 = 4,320 blocks
+(define-constant SUBSCRIPTION-DURATION u2592000)        ;; CLARITY 4: Subscription duration in seconds which is exactly 30 days
+                                                        ;; stacks-block-time returns Unix timestamp, 60 x 60 x 24 x 30 = 2,592,000 seconds
 
 ;; Subscription tiers
 (define-constant TIER-BASIC u1)                        ;; Basic subscription tier
@@ -541,9 +541,11 @@
     )
 )
 
-;; Check if subscription is currently active (not expired)
+;; CLARITY 4: Uses stacks-block-time instead of stacks-block-height
+;; stacks-block-time returns actual Unix timestamp in seconds
+;; this means 30 days is always exactly 30 days, not approximately
 (define-private (is-subscription-active (expiry-block uint))
-    (> expiry-block stacks-block-height)
+    (> expiry-block stacks-block-time)
 )
 
 ;;===============================
@@ -1041,8 +1043,8 @@
             ;; Calculate creator's share (95% of subscription)
             (creator-amount (- subscription-price platform-fee))
             
-            ;; Calculate when subscription expires (current block + 30 days)
-            (expiry-block (+ stacks-block-height SUBSCRIPTION-DURATION))
+            ;; CLARITY 4: expiry calculated using real clock time not block height
+            (expiry-block (+ stacks-block-time SUBSCRIPTION-DURATION))
         )
         
         ;; Make sure subscriber has a profile (creator or public user)
@@ -1179,7 +1181,7 @@
             event: "subscription-cancelled",
             subscriber: tx-sender,
             creator: creator,
-            cancelled-at: stacks-block-height
+            cancelled-at: stacks-block-time
         })
         
         (ok true)
