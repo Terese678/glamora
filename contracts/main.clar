@@ -872,21 +872,18 @@
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
 
         ;; PAYMENT PROCESSING
-        ;; STEP 1: TRANSFER CREATOR'S 95% SHARE
-        ;; Fan pays creator directly with their chosen token (sBTC or USDCx)
-        ;; The creator gets 95% of the tip amount immediately
-        ;; We check payment-token to know which token contract to call
+
+        ;; STEP 1: SEND CREATOR THEIR 95% TIP SHARE
+        ;; sBTC fans: creator receives the tip directly in their wallet right now
+        ;; USDCx fans: we skip the direct transfer here
+        ;; the vault in step 3 accumulates it until the creator saves enough to withdraw once
         (if (is-eq payment-token TOKEN-SBTC)
             (try! (contract-call? .sbtc-token transfer 
                 creator-amount 
                 tx-sender
                 creator 
                 none))
-            (try! (contract-call? .usdcx-token transfer 
-                creator-amount 
-                tx-sender
-                creator 
-                none))
+            true  ;; USDCx creator payment goes into vault in step 3 - skip direct transfer here
         )
         
         ;; STEP 2: TRANSFER PLATFORM'S 5% FEE
@@ -1062,20 +1059,21 @@
         (asserts! (not (is-eq tx-sender creator)) ERR-INVALID-INPUT)
         
        ;; Check the user does not already have active subscription to this creator
-        (asserts! (not (unwrap! (has-active-subscription tx-sender creator) ERR-SUBSCRIPTION-CHECK-FAILED)) ERR-SUBSCRIPTION-ACTIVE)    
+        (asserts! (not (unwrap! (has-active-subscription tx-sender creator) ERR-SUBSCRIPTION-CHECK-FAILED)) ERR-SUBSCRIPTION-ACTIVE)
+
         ;; PAYMENT PROCESSING
-        ;; STEP 1: TRANSFER CREATOR'S 95% SHARE OF SUBSCRIPTION
+
+        ;; STEP 1: SEND CREATOR THEIR 95% SUBSCRIPTION SHARE
+        ;; sBTC subscribers: money lands in creator's wallet instantly
+        ;; USDCx subscribers: we skip the direct transfer here
+        ;; the vault in step 3 holds it until the creator hits their $50 threshold
         (if (is-eq payment-token TOKEN-SBTC)
             (try! (contract-call? .sbtc-token transfer 
                 creator-amount 
                 tx-sender
                 creator
                 none))
-            (try! (contract-call? .usdcx-token transfer 
-                creator-amount 
-                tx-sender
-                creator
-                none))
+            true  ;; USDCx creator payment handled by vault below - skip here
         )
         
         ;; STEP 2: TRANSFER PLATFORM'S 5% SUBSCRIPTION FEE
