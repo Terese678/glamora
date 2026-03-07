@@ -27,11 +27,11 @@ import {
   bufferCVFromString,
 } from '@stacks/transactions';
 
-import { StacksTestnet } from '@stacks/network';
+import { STACKS_TESTNET } from '@stacks/network';
 import { openContractCall } from '@stacks/connect';
 import { fetchCallReadOnlyFunction, cvToValue, Cl } from '@stacks/transactions';
 
-const network = new StacksTestnet();
+const network = STACKS_TESTNET;
 
 // ============================================================
 // HELPER: Read-only contract call (no wallet needed)
