@@ -1,5 +1,5 @@
-// Contract Calls functions to interact with the smart contract
-// this file contains all the functions to call your Glamora smart contract
+// Contract Calls for Glamora
+// All functions here call your deployed Clarity smart contracts on Stacks testnet
 
 import {
   CONTRACT_CONFIG,
@@ -11,1275 +11,629 @@ import {
   MIN_TIP_AMOUNT,
   USDCX_FUNCTIONS,
   BRIDGE_FUNCTIONS,
-  USDCX_DECIMALS,
-  MIN_USDCX_TIP
 } from './contractConfig';
 
 import {
-  callContract,
-  fetchCallReadOnlyFunction,
-  cv,
-  Cl,
-  getContractPrincipal,
-  generateMockIPFSHash,
-  handleContractError,
-  getNetwork
-} from './stacksUtils';
+  makeContractCall,
+  broadcastTransaction,
+  AnchorMode,
+  PostConditionMode,
+  uintCV,
+  stringAsciiCV,
+  principalCV,
+  boolCV,
+  noneCV,
+  someCV,
+  bufferCVFromString,
+} from '@stacks/transactions';
 
-import { stringAsciiCV, stringUtf8CV, uintCV, AnchorMode, PostConditionMode } from '@stacks/transactions';
+import { StacksTestnet } from '@stacks/network';
+import { openContractCall } from '@stacks/connect';
+import { fetchCallReadOnlyFunction, cvToValue, Cl } from '@stacks/transactions';
 
-// Register a new user on the platform
-export const registerUser = async (userSession, username, bio) => {
-  try {
-    const functionArgs = [
-      cv.string(username),
-      cv.string(bio)
-    ];
+const network = new StacksTestnet();
 
-    await callContract(
-      userSession,
-      MAIN_FUNCTIONS.REGISTER_USER,
-      functionArgs,
-      (result) => {
-        console.log('User registered:', result);
-        alert('Successfully registered!');
-      }
-    );
-  } catch (error) {
-    handleContractError(error);
-  }
+// ============================================================
+// HELPER: Read-only contract call (no wallet needed)
+// ============================================================
+async function readOnly(contractName, functionName, args = []) {
+  const result = await fetchCallReadOnlyFunction({
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName,
+    functionName,
+    functionArgs: args,
+    network,
+    senderAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+  });
+  return cvToValue(result);
+}
+
+// ============================================================
+// CREATOR PROFILE FUNCTIONS
+// Contract: main-v7
+// ============================================================
+
+// Register a new creator profile on chain
+export const createCreatorProfile = async (
+  username,
+  bio,
+  profileImageUrl,
+  category,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.CREATE_CREATOR_PROFILE,
+    functionArgs: [
+      stringAsciiCV(username),
+      stringAsciiCV(bio),
+      stringAsciiCV(profileImageUrl),
+      stringAsciiCV(category),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Creator profile created:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Creator profile creation cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// List a new product for sale
-export const listProduct = async (userSession, productName, description, price, category, imageUrl) => {
-  try {
-    const ipfsHash = generateMockIPFSHash();
-    
-    const functionArgs = [
-      cv.string(productName),
-      cv.string(description),
-      cv.uint(price),
-      cv.string(category),
-      cv.string(imageUrl || ipfsHash)
-    ];
-
-    await callContract(
-      userSession,
-      MAIN_FUNCTIONS.LIST_PRODUCT,
-      functionArgs,
-      (result) => {
-        console.log('Product listed:', result);
-        alert('Product listed successfully!');
-      }
-    );
-  } catch (error) {
-    handleContractError(error);
-  }
+// Register a new public (fan) user profile on chain
+export const createPublicUserProfile = async (
+  username,
+  bio,
+  profileImageUrl,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.CREATE_PUBLIC_USER_PROFILE,
+    functionArgs: [
+      stringAsciiCV(username),
+      stringAsciiCV(bio),
+      stringAsciiCV(profileImageUrl),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Public user profile created:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Public user profile creation cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// Buy a product
-export const buyProduct = async (userSession, productId) => {
-  try {
-    const functionArgs = [
-      cv.uint(productId)
-    ];
-
-    await callContract(
-      userSession,
-      MAIN_FUNCTIONS.BUY_PRODUCT,
-      functionArgs,
-      (result) => {
-        console.log('Product purchased:', result);
-        alert('Purchase successful!');
-      }
-    );
-  } catch (error) {
-    handleContractError(error);
-  }
+// Update an existing creator profile
+export const updateCreatorProfile = async (
+  username,
+  bio,
+  profileImageUrl,
+  category,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.UPDATE_CREATOR_PROFILE,
+    functionArgs: [
+      stringAsciiCV(username),
+      stringAsciiCV(bio),
+      stringAsciiCV(profileImageUrl),
+      stringAsciiCV(category),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Creator profile updated:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Creator profile update cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// Get product details (read-only)
-export const getProduct = async (productId) => {
-  try {
-    const functionArgs = [cv.uint(productId)];
-    
-    const result = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: MAIN_FUNCTIONS.GET_PRODUCT,
-      functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
-    });
-
-    return result;
-  } catch (error) {
-    handleContractError(error);
-    return null;
-  }
+// Update an existing public user profile
+export const updatePublicUserProfile = async (
+  username,
+  bio,
+  profileImageUrl,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.UPDATE_PUBLIC_USER_PROFILE,
+    functionArgs: [
+      stringAsciiCV(username),
+      stringAsciiCV(bio),
+      stringAsciiCV(profileImageUrl),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Public user profile updated:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Public user profile update cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// Get user details (read-only)
-export const getUser = async (userAddress) => {
-  try {
-    const functionArgs = [cv.principal(userAddress)];
-    
-    const result = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: MAIN_FUNCTIONS.GET_USER,
-      functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
-    });
-
-    return result;
-  } catch (error) {
-    handleContractError(error);
-    return null;
-  }
+// Read a creator profile from chain (no wallet needed)
+export const getCreatorProfile = async (creatorAddress) => {
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_CREATOR_PROFILE,
+    [principalCV(creatorAddress)]
+  );
 };
 
-// Add a review for a product
-export const addReview = async (userSession, productId, rating, comment) => {
-  try {
-    const functionArgs = [
-      cv.uint(productId),
-      cv.uint(rating),
-      cv.string(comment)
-    ];
-
-    await callContract(
-      userSession,
-      MAIN_FUNCTIONS.ADD_REVIEW,
-      functionArgs,
-      (result) => {
-        console.log('Review added:', result);
-        alert('Review submitted successfully!');
-      }
-    );
-  } catch (error) {
-    handleContractError(error);
-  }
-};
-
-/**
- * CREATE CREATOR PROFILE
- * Calls the main-v4 contract to create a new creator profile on the blockchain
- * 
- * @param {string} userAddress - The Stacks address of the user creating the profile
- * @param {string} username - The creator's username (must be unique, ASCII only)
- * @param {string} displayName - The creator's display name (can contain UTF-8 characters)
- * @param {string} bio - The creator's biography/description
- * @returns {Promise} - Resolves when wallet approval completes
- */
-export const createCreatorProfile = async (userAddress, username, displayName, bio) => {
-  try {
-    // Log all input parameters for debugging
-    console.log('=== CREATING CREATOR PROFILE ===');
-    console.log('User Address:', userAddress);
-    console.log('Username:', username);
-    console.log('Display Name:', displayName);
-    console.log('Bio:', bio);
-
-    // Prepare function arguments in Clarity value format
-    // stringAsciiCV: for ASCII-only strings (usernames)
-    // stringUtf8CV: for UTF-8 strings (display names, bios with special characters)
-    const functionArgs = [
-      stringAsciiCV(username),      // arg0: username (ASCII only, permanent)
-      stringUtf8CV(displayName),    // arg1: display-name (UTF-8, can be updated)
-      stringUtf8CV(bio)             // arg2: bio (UTF-8, can be updated)
-    ];
-
-    // Log prepared arguments for verification
-    console.log('Function args prepared:', functionArgs);
-    console.log('Contract:', CONTRACT_CONFIG.address + '.main-v4');
-    console.log('Function: create-creator-profile');
-
-    // Import required Stacks dependencies dynamically
-    const { openContractCall } = await import('@stacks/connect');
-    const { STACKS_TESTNET } = await import('@stacks/network');
-
-    // Configure the transaction options
-    const txOptions = {
-      contractAddress: CONTRACT_CONFIG.address,  // Your deployer address
-      contractName: 'main-v3',                   // The contract name (must match deployed contract)
-      functionName: 'create-creator-profile',    // The public function to call
-      functionArgs: functionArgs,                // The prepared arguments array
-      network: STACKS_TESTNET,                   // Target network (testnet constant)
-      appDetails: {
-        name: 'Glamora',                         // App name shown in wallet
-        icon: window.location.origin + '/logo.png', // App icon shown in wallet
-      },
-      // Callback when user approves transaction in wallet
-      onFinish: (data) => {
-        console.log('=== WALLET APPROVED ===');
-        console.log('Transaction data received:', data);
-        console.log('Transaction ID:', data.txId);
-        return data;
-      },
-      // Callback when user cancels transaction in wallet
-      onCancel: () => {
-        console.log('=== TRANSACTION CANCELLED ===');
-        throw new Error('Transaction cancelled by user');
-      }
-    };
-
-    // Open the Leather wallet for user approval
-    console.log('=== OPENING WALLET ===');
-    const result = await openContractCall(txOptions);
-    return result;
-
-  } catch (error) {
-    // Log any errors that occur during the process
-    console.error('=== ERROR IN CREATE CREATOR PROFILE ===');
-    console.error('Error details:', error);
-    throw error; // Re-throw so calling function can handle it
-  }
-};
-
-/**
- * CREATE PUBLIC USER PROFILE
- * Creates a new public user profile on the blockchain
- */
-export const createPublicUserProfile = async (userAddress, username, displayName, bio) => {
-  try {
-    console.log('Creating public user profile...');
-    console.log('Username:', username);
-    console.log('Display Name:', displayName);
-    console.log('Bio:', bio);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AppConfig, UserSession } = await import('@stacks/auth');
-    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
-    
-    const appConfig = new AppConfig(['store_write', 'publish_data']);
-    const userSession = new UserSession({ appConfig });
-    
-    const functionArgs = [
-      Cl.stringAscii(username),
-      Cl.stringUtf8(displayName),
-      Cl.stringUtf8(bio)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'main-v4',
-      functionName: 'create-public-user-profile',
-      functionArgs: functionArgs,
-      userSession: userSession,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Transaction broadcast:', data);
-        console.log('Transaction ID:', data.txId);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled by user');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error creating public user profile:', error);
-    throw error;
-  }
-};
-
-// TIP CREATOR - Sends cryptocurrency to a creator as a tip
-export const tipCreator = async (userAddress, recipientAddress, amount) => {
-  try {
-    console.log('Sending tip...');
-    console.log('To:', recipientAddress);
-    console.log('Amount (microSTX):', amount);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      cv.principal(recipientAddress),
-      cv.uint(amount)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'tip-creator',  
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Tip sent:', data);
-      },
-      onCancel: () => {
-        console.log('Tip cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error sending tip:', error);
-    throw error;
-  }
-};
-
-// GET PROFILE - Reads a user's profile from the blockchain (READ-ONLY)
-export const getProfile = async (userAddress) => {
-  try {
-    console.log('Fetching profile for:', userAddress);
-    
-    const functionArgs = [cv.principal(userAddress)];
-    
-    const options = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'get-profile',  
-      functionArgs: functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
-    };
-    
-    const result = await fetchCallReadOnlyFunction(options);
-    
-    console.log('Profile result:', result);
-    
-    return result;
-    
-  } catch (error) {
-    console.log('No profile found:', error.message);
-    return null;
-  }
-};
-
-// Export categories and tiers for use in UI
-export { CONTENT_CATEGORIES, SUBSCRIPTION_TIERS, MIN_TIP_AMOUNT };
-
-/**
- * GET CREATOR PROFILE
- * Fetches a creator profile from the storage contract
- * 
- * @param {string} userAddress - The Stacks address of the creator
- * @returns {Promise<Object|null>} - The creator profile data or null if not found
- */
-export const getCreatorProfile = async (userAddress) => {
-  try {
-    console.log('Fetching creator profile for:', userAddress);
-    
-    // Prepare function arguments with the user's principal address
-    const functionArgs = [Cl.principal(userAddress)];
-    
-    // Configure the read-only function call options
-    const options = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'storage',
-      functionName: 'get-creator-profile',
-      functionArgs: functionArgs,
-      senderAddress: userAddress,
-    };
-    
-    // Execute the read-only function call
-    const result = await fetchCallReadOnlyFunction(options);
-    
-    // Log raw result to see its structure
-    console.log('Creator profile raw result:', result);
-    
-    // Check if no profile exists
-    if (result.type === 'none') {
-      console.log('No creator profile found (type: none)');
-      return null;
-    }
-    
-    // Extract profile data - the data might be in result.value itself or result.value.value
-    if (result.type === 'some') {
-      // Try to access the tuple data - it could be in different places
-      const tupleData = result.value.data || result.value.value || result.value;
-      
-      console.log('Extracted tuple data:', tupleData);
-      console.log('Tuple data type:', typeof tupleData);
-      
-      // If tupleData is an object with profile fields, extract them
-      if (tupleData && typeof tupleData === 'object') {
-        // Try to extract the actual values - they might be nested in .value or .data properties
-        const convertedProfile = {
-          username: tupleData.username?.data || tupleData.username?.value || tupleData.username || '',
-          displayName: tupleData['display-name']?.data || tupleData['display-name']?.value || tupleData['display-name'] || '',
-          bio: tupleData.bio?.data || tupleData.bio?.value || tupleData.bio || '',
-          followerCount: Number(tupleData['follower-count']?.value || tupleData['follower-count'] || 0),
-          creatorScore: Number(tupleData['creator-score']?.value || tupleData['creator-score'] || 0),
-          totalEarnings: Number(tupleData['total-earnings']?.value || tupleData['total-earnings'] || 0),
-          creationDate: Number(tupleData['creation-date']?.value || tupleData['creation-date'] || 0),
-          profilePictureUrl: tupleData['profile-picture-url']?.data || tupleData['profile-picture-url']?.value || tupleData['profile-picture-url'] || '',
-          verified: tupleData.verified?.type === 'true' || tupleData.verified === true || false,
-        };
-        
-        console.log('Creator profile parsed:', convertedProfile);
-        return convertedProfile;
-      }
-    }
-    
-    console.log('Could not extract profile data');
-    return null;
-    
-  } catch (error) {
-    console.error('Error fetching creator profile:', error);
-    return null;
-  }
-};
-
-/**
- * GET PUBLIC USER PROFILE
- * Fetches a public user profile from the storage contract
- * 
- * @param {string} userAddress - The Stacks address of the public user
- * @returns {Promise<Object|null>} - The public user profile data or null if not found
- */
+// Read a public user profile from chain (no wallet needed)
 export const getPublicUserProfile = async (userAddress) => {
-  try {
-    console.log('Fetching public user profile for:', userAddress);
-    
-    // Prepare function arguments with the user's principal address
-    const functionArgs = [Cl.principal(userAddress)];
-    
-    // Configure the read-only function call options
-    const options = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'storage',
-      functionName: 'get-public-user-profile',
-      functionArgs: functionArgs,
-      senderAddress: userAddress,
-    };
-    
-    // Execute the read-only function call
-    const result = await fetchCallReadOnlyFunction(options);
-    
-    // Log raw result to see its structure
-    console.log('Public user profile raw result:', result);
-    
-    // Check if no profile exists
-    if (result.type === 'none') {
-      console.log('No public user profile found (type: none)');
-      return null;
-    }
-    
-    // Extract profile data - the data might be in result.value itself or result.value.value
-    if (result.type === 'some') {
-      // Try to access the tuple data - it could be in different places
-      const tupleData = result.value.data || result.value.value || result.value;
-      
-      console.log('Extracted tuple data:', tupleData);
-      console.log('Tuple data type:', typeof tupleData);
-      
-      // If tupleData is an object with profile fields, extract them
-      if (tupleData && typeof tupleData === 'object') {
-        // Try to extract the actual values - they might be nested in .value or .data properties
-        const convertedProfile = {
-          username: tupleData.username?.data || tupleData.username?.value || tupleData.username || '',
-          displayName: tupleData['display-name']?.data || tupleData['display-name']?.value || tupleData['display-name'] || '',
-          bio: tupleData.bio?.data || tupleData.bio?.value || tupleData.bio || '',
-          joinedDate: Number(tupleData['joined-date']?.value || tupleData['joined-date'] || 0),
-          profilePictureUrl: tupleData['profile-picture-url']?.data || tupleData['profile-picture-url']?.value || tupleData['profile-picture-url'] || '',
-        };
-        
-        console.log('Public user profile parsed:', convertedProfile);
-        return convertedProfile;
-      }
-    }
-    
-    console.log('Could not extract profile data');
-    return null;
-    
-  } catch (error) {
-    console.error('Error fetching public user profile:', error);
-    return null;
-  }
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_PUBLIC_USER_PROFILE,
+    [principalCV(userAddress)]
+  );
 };
 
-/**
- * PUBLISH CONTENT FUNCTION
- * This publishContent function supports IPFS hash
- */
-export const publishContent = async (userAddress, title, description, contentHash, ipfsHash, category) => {
-  try {
-    console.log('Publishing content...');
-    console.log('Title:', title);
-    console.log('Description:', description);
-    console.log('Content Hash:', contentHash);
-    console.log('IPFS Hash:', ipfsHash);
-    console.log('Category:', category);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { 
-      AnchorMode, 
-      PostConditionMode, 
-      stringUtf8CV, 
-      stringAsciiCV,    // ← Make sure this is imported!
-      bufferCV, 
-      someCV, 
-      noneCV, 
-      uintCV 
-    } = await import('@stacks/transactions');
-    
-    // Convert content hash from hex string to buffer (32 bytes)
-    const hashBuffer = contentHash.startsWith('0x') ? contentHash.slice(2) : contentHash;
-    
-    // Ensure hash is exactly 64 hex characters (32 bytes)
-    const paddedHash = hashBuffer.padEnd(64, '0');
-    
-    // Convert to Uint8Array
-    const hashBytes = new Uint8Array(
-      paddedHash.match(/.{1,2}/g).map(byte => parseInt(byte, 16))
-    );
-    
-    const contentHashBuffer = bufferCV(Buffer.from(hashBytes));
-    
-    // CRITICAL FIX: Use stringAsciiCV for IPFS hash (not stringUtf8CV)
-    // Contract expects: (optional (string-ascii 64))
-    const ipfsHashParam = ipfsHash ? someCV(stringAsciiCV(ipfsHash)) : noneCV();
-    
-    const functionArgs = [
-      stringUtf8CV(title),           // param 1: title (string-utf8 64)
-      stringUtf8CV(description),     // param 2: description (string-utf8 256)
-      contentHashBuffer,             // param 3: content-hash (buff 32)
-      ipfsHashParam,                 // param 4: ipfs-hash (optional string-ascii 64)
-      uintCV(category)               // param 5: category (uint)
-    ];
-    
-    console.log('Function args prepared:', functionArgs);
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'publish-content',
-      functionArgs: functionArgs,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Content published:', data);
-        console.log('Transaction ID:', data.txId);
-      },
-      onCancel: () => {
-        console.log('Publishing cancelled');
-      }
-    };
-    
-    console.log('Opening wallet for approval...');
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error publishing content:', error);
-    throw error;
-  }
-};
-
-/**
- * GET CREATOR'S CONTENT
- * Fetches all content published by a creator
- */
-export const getCreatorContent = async (creatorAddress) => {
-  try {
-    console.log('Fetching content for creator:', creatorAddress);
-    
-    // First, get the total number of content items
-    const nextIdResult = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'get-next-content-id',
-      functionArgs: [],
-      senderAddress: CONTRACT_CONFIG.address,
-    });
-    
-    const totalContent = Number(nextIdResult.value);
-    console.log('Total content items:', totalContent);
-    
-    if (totalContent === 0) {
-      return [];
-    }
-    
-    // Fetch each content item
-    const contentPromises = [];
-    for (let i = 0; i < totalContent; i++) {
-      contentPromises.push(
-        fetchCallReadOnlyFunction({
-          network: getNetwork(),
-          contractAddress: CONTRACT_CONFIG.address,
-          contractName: CONTRACT_CONFIG.name,
-          functionName: 'get-content-details',
-          functionArgs: [uintCV(i)],
-          senderAddress: CONTRACT_CONFIG.address,
-        })
-      );
-    }
-    
-    const contentResults = await Promise.all(contentPromises);
-    
-    // Filter content by creator and parse the data
-    const creatorContent = contentResults
-      .map((result, index) => {
-        if (!result) {
-          console.log(`Content ${index}: Result is null/undefined`);
-          return null;
-        }
-        
-        console.log(`Content ${index} full result:`, result);
-        console.log(`Content ${index} result type:`, result.type);
-        
-        if (result.type !== 'ok' && result.type !== 'some') {
-          console.log(`Content ${index}: Invalid result type`);
-          return null;
-        }
-        
-        const contentData = result.value.data || result.value;
-        
-        // Handle tuple structure
-        const actualData = contentData.type === 'tuple' ? contentData.value : contentData;
-        
-        console.log(`Content ${index} contentData FULL:`, contentData);
-        
-        // Debug: Log the creator address from content
-        console.log(`Content ${index} creator:`, actualData.creator);
-        console.log(`Content ${index} creator FULL:`, JSON.stringify(actualData.creator, null, 2));
-        console.log(`Content ${index} creator address:`, actualData.creator.value);
-        console.log(`Expected creator:`, creatorAddress);
-        console.log(`Match?`, actualData.creator.value === creatorAddress);
-        
-        // Check if this content belongs to the creator
-        if (actualData.creator.value !== creatorAddress) {
-          console.log(`Content ${index}: NOT a match, skipping`);
-          return null;
-        }
-        
-        console.log(`Content ${index}: MATCH! Adding to results`);
-        
-        return {
-          id: index,
-          title: actualData.title?.value || actualData.title?.data || 'Untitled',
-          description: actualData.description?.value || actualData.description?.data || 'No description',
-          ipfsHash: actualData['content-hash']?.value?.data || actualData['ipfs-hash']?.value?.data || null,
-          category: Number(actualData.category?.value || 0),
-          timestamp: Number(actualData['creation-date']?.value || 0),
-          creator: actualData.creator.value
-        };
-      })
-      .filter(item => item !== null);
-    
-    console.log('Creator content:', creatorContent);
-    return creatorContent;
-    
-  } catch (error) {
-    console.error('Error fetching creator content:', error);
-    return [];
-  }
-};
 // ============================================================
-// NFT MARKETPLACE FUNCTIONS 
+// CONTENT FUNCTIONS
+// Contract: main-v7
 // ============================================================
 
-// LIST FASHION NFT FOR SALE
-export const listFashionNFT = async (tokenId, priceInSTX) => {
-  try {
-    console.log('Listing NFT for sale...');
-    console.log('Token ID:', tokenId);
-    console.log('Price:', priceInSTX, 'STX');
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
-    
-    const priceInMicroSTX = Math.floor(priceInSTX * 1000000);
-    
-    const functionArgs = [
+// Publish a new content post (fashion content, tips, etc.)
+export const createContent = async (
+  title,
+  description,
+  contentUrl,
+  category,
+  isPremium,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.CREATE_CONTENT,
+    functionArgs: [
+      stringAsciiCV(title),
+      stringAsciiCV(description),
+      stringAsciiCV(contentUrl),
+      stringAsciiCV(category),
+      boolCV(isPremium),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Content created:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Content creation cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// Read a single content post (no wallet needed)
+export const getContent = async (contentId) => {
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_CONTENT,
+    [uintCV(contentId)]
+  );
+};
+
+// ============================================================
+// TIPPING FUNCTIONS
+// Contract: main-v7
+// Fans tip creators with sBTC or USDCx
+// USDCx tips go into the creator's vault (saves gas fees)
+// sBTC tips go directly to the creator's wallet
+// ============================================================
+
+// Send a tip to a creator
+export const tipCreator = async (
+  creatorAddress,
+  amount,
+  paymentToken,   // 'sbtc' or 'usdcx'
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.TIP_CREATOR,
+    functionArgs: [
+      principalCV(creatorAddress),
+      uintCV(amount),
+      stringAsciiCV(paymentToken),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Tip sent:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Tip cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// ============================================================
+// FOLLOW FUNCTIONS
+// Contract: main-v7
+// ============================================================
+
+// Follow a creator
+export const followUser = async (creatorAddress, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.FOLLOW_USER,
+    functionArgs: [principalCV(creatorAddress)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Followed creator:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Follow cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// Unfollow a creator
+export const unfollowUser = async (creatorAddress, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.UNFOLLOW_USER,
+    functionArgs: [principalCV(creatorAddress)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Unfollowed creator:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Unfollow cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// ============================================================
+// SUBSCRIPTION FUNCTIONS
+// Contract: main-v7
+// Subscriptions use stacks-block-time for accurate 30-day windows
+// ============================================================
+
+// Subscribe to a creator (Basic, Premium, or VIP tier)
+export const subscribeToCreator = async (
+  creatorAddress,
+  tier,             // 'basic', 'premium', or 'vip'
+  paymentToken,     // 'sbtc' or 'usdcx'
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.SUBSCRIBE_TO_CREATOR,
+    functionArgs: [
+      principalCV(creatorAddress),
+      stringAsciiCV(tier),
+      stringAsciiCV(paymentToken),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Subscribed to creator:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Subscription cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// Cancel an active subscription
+export const cancelSubscription = async (creatorAddress, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7
+    functionName: MAIN_FUNCTIONS.CANCEL_SUBSCRIPTION,
+    functionArgs: [principalCV(creatorAddress)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Subscription cancelled:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Cancel subscription aborted');
+    },
+  };
+  await openContractCall(options);
+};
+
+// Check if a user has an active subscription to a creator
+export const getUserSubscription = async (userAddress, creatorAddress) => {
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_USER_SUBSCRIPTION,
+    [principalCV(userAddress), principalCV(creatorAddress)]
+  );
+};
+
+// ============================================================
+// NFT FUNCTIONS
+// Contract: glamora-nft-v2
+// Fashion NFTs with permanent 8% creator royalty on every resale
+// Royalty is enforced at contract level - no marketplace can bypass it
+// ============================================================
+
+// Mint a new fashion NFT
+// Creator address is stored at mint time for permanent royalty tracking
+export const mintFashionNFT = async (
+  metadataUrl,
+  name,
+  description,
+  userSession
+) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.NFT,          // glamora-nft-v2
+    functionName: NFT_FUNCTIONS.MINT,
+    functionArgs: [
+      stringAsciiCV(metadataUrl),
+      stringAsciiCV(name),
+      stringAsciiCV(description),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ NFT minted:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ NFT mint cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+// List an NFT for sale on the marketplace
+export const listNFTForSale = async (tokenId, price, paymentToken, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.NFT,          // glamora-nft-v2
+    functionName: NFT_FUNCTIONS.LIST_NFT, // list-nft-for-sale
+    functionArgs: [
       uintCV(tokenId),
-      uintCV(priceInMicroSTX)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'list-fashion-nft',
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('NFT listed successfully:', data);
-      },
-      onCancel: () => {
-        console.log('Listing cancelled by user');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error listing NFT:', error);
-    throw error;
-  }
+      uintCV(price),
+      stringAsciiCV(paymentToken),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ NFT listed for sale:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ NFT listing cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// PURCHASE FASHION NFT
-export const purchaseFashionNFT = async (tokenId, maxPriceInSTX) => {
-  try {
-    console.log('Purchasing NFT...');
-    console.log('Token ID:', tokenId);
-    console.log('Max Price:', maxPriceInSTX, 'STX');
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
-    
-    const maxPriceInMicroSTX = Math.floor(maxPriceInSTX * 1000000);
-    
-    const functionArgs = [
-      uintCV(tokenId),
-      uintCV(maxPriceInMicroSTX)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'purchase-fashion-nft',
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('NFT purchased successfully:', data);
-      },
-      onCancel: () => {
-        console.log('Purchase cancelled by user');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error purchasing NFT:', error);
-    throw error;
-  }
+// Buy an NFT from the marketplace
+// Payment splits: 87% seller, 8% original creator royalty, 5% platform
+// Royalty goes to the creator who originally minted this NFT - forever
+export const buyNFT = async (tokenId, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN,         // main-v7 handles buy-nft with royalty split
+    functionName: NFT_FUNCTIONS.BUY_NFT,  // buy-nft
+    functionArgs: [uintCV(tokenId)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ NFT purchased:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ NFT purchase cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// UNLIST FASHION NFT
-export const unlistFashionNFT = async (tokenId) => {
-  try {
-    console.log('Unlisting NFT...');
-    console.log('Token ID:', tokenId);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, uintCV } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      uintCV(tokenId)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'unlist-fashion-nft',
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('NFT unlisted successfully:', data);
-      },
-      onCancel: () => {
-        console.log('Unlisting cancelled by user');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error unlisting NFT:', error);
-    throw error;
-  }
+// Remove an NFT listing from the marketplace
+export const cancelNFTListing = async (tokenId, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.NFT,          // glamora-nft-v2
+    functionName: NFT_FUNCTIONS.CANCEL_LISTING, // cancel-nft-listing
+    functionArgs: [uintCV(tokenId)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ NFT listing cancelled:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Cancel listing aborted');
+    },
+  };
+  await openContractCall(options);
 };
 
-// GET NFT LISTING
+// Read NFT details (no wallet needed)
+export const getNFT = async (tokenId) => {
+  return await readOnly(
+    CONTRACTS.NFT,                        // glamora-nft-v2
+    NFT_FUNCTIONS.GET_NFT,
+    [uintCV(tokenId)]
+  );
+};
+
+// Read NFT listing details (no wallet needed)
 export const getNFTListing = async (tokenId) => {
-  try {
-    console.log('Fetching NFT listing for token:', tokenId);
-    
-    const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { STACKS_TESTNET } = await import('@stacks/network');
-    
-    const functionArgs = [
-      Cl.uint(tokenId)
-    ];
-    
-    const options = {
-      network: STACKS_TESTNET,
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'get-nft-listing',
-      functionArgs: functionArgs,
-      senderAddress: CONTRACT_CONFIG.address,
-    };
-    
-    const result = await callReadOnlyFunction(options);
-    const listingData = cvToJSON(result);
-    
-    console.log('NFT listing data:', listingData);
-    return listingData;
-    
-  } catch (error) {
-    console.error('Error fetching NFT listing:', error);
-    return null;
-  }
+  return await readOnly(
+    CONTRACTS.NFT,                        // glamora-nft-v2
+    NFT_FUNCTIONS.GET_LISTING,
+    [uintCV(tokenId)]
+  );
 };
 
-// GET MARKETPLACE STATISTICS
-export const getMarketplaceStats = async () => {
-  try {
-    console.log('Fetching marketplace statistics...');
-    
-    const { callReadOnlyFunction, cvToJSON } = await import('@stacks/transactions');
-    const { STACKS_TESTNET } = await import('@stacks/network');
-    
-    const options = {
-      network: STACKS_TESTNET,
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'get-marketplace-stats',
-      functionArgs: [],
-      senderAddress: CONTRACT_CONFIG.address,
-    };
-    
-    const result = await callReadOnlyFunction(options);
-    const statsData = cvToJSON(result);
-    
-    console.log('Marketplace stats:', statsData);
-    return statsData;
-    
-  } catch (error) {
-    console.error('Error fetching marketplace stats:', error);
-    return null;
-  }
+// ============================================================
+// VAULT FUNCTIONS
+// Contract: bridge-adapter
+// The vault holds USDCx earnings until the creator hits their
+// withdrawal threshold - one withdrawal, one gas fee.
+// This is how a creator in Lagos keeps $55 instead of losing $40.
+// ============================================================
+
+// Read a creator's vault balance and threshold info (no wallet needed)
+export const getCreatorVaultInfo = async (creatorAddress) => {
+  return await readOnly(
+    CONTRACTS.BRIDGE_ADAPTER,             // bridge-adapter
+    BRIDGE_FUNCTIONS.GET_VAULT_INFO,      // get-creator-vault-info
+    [principalCV(creatorAddress)]
+  );
 };
 
-// CREATE NFT COLLECTION
-export const createNFTCollection = async (collectionName, description, maxEditions) => {
-  try {
-    console.log('Creating NFT collection...');
-    console.log('Name:', collectionName);
-    console.log('Max Editions:', maxEditions);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, stringUtf8CV, uintCV } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      stringUtf8CV(collectionName),
-      stringUtf8CV(description),
-      uintCV(maxEditions)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: CONTRACT_CONFIG.name,
-      functionName: 'create-nft-collection',
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Collection created successfully:', data);
-      },
-      onCancel: () => {
-        console.log('Collection creation cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error creating collection:', error);
-    throw error;
-  }
+// Set the USDCx amount threshold before vault auto-withdraws
+export const setVaultThreshold = async (threshold, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.BRIDGE_ADAPTER, // bridge-adapter
+    functionName: BRIDGE_FUNCTIONS.SET_THRESHOLD,
+    functionArgs: [uintCV(threshold)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Vault threshold set:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Set threshold cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// MINT FASHION NFT
-export const mintFashionNFT = async (collectionId, recipientAddress, name, description, imageIpfsHash) => {
-  try {
-    console.log('Minting NFT...');
-    console.log('Collection ID:', collectionId);
-    console.log('Name:', name);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { 
-      AnchorMode, 
-      PostConditionMode, 
-      uintCV, 
-      principalCV,
-      stringUtf8CV,
-      stringAsciiCV,
-      noneCV 
-    } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      uintCV(collectionId),
-      principalCV(recipientAddress),
-      stringUtf8CV(name),
-      stringUtf8CV(description),
-      stringAsciiCV(imageIpfsHash),
-      noneCV(),
-      noneCV(),
-      noneCV()
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'glamora-nft',
-      functionName: 'mint-fashion-nft',
-      functionArgs: functionArgs,
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('NFT minted successfully:', data);
-      },
-      onCancel: () => {
-        console.log('Minting cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error minting NFT:', error);
-    throw error;
-  }
+// Manually withdraw USDCx earnings from the vault to creator's wallet
+export const withdrawFromVault = async (userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.BRIDGE_ADAPTER, // bridge-adapter
+    functionName: BRIDGE_FUNCTIONS.WITHDRAW,
+    functionArgs: [],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Vault withdrawal complete:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Vault withdrawal cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// UPDATE CREATOR PROFILE
-export const updateCreatorProfile = async (userAddress, displayName, bio) => {
-  try {
-    console.log('=== UPDATING CREATOR PROFILE ===');
-    console.log('User Address:', userAddress);
-    console.log('Display Name:', displayName);
-    console.log('Bio:', bio);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      Cl.stringUtf8(displayName),
-      Cl.stringUtf8(bio)
-    ];
-    
-    console.log('Function args:', functionArgs);
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'main-v4',
-      functionName: 'update-creator-profile',
-      functionArgs: functionArgs,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Profile Update Transaction SUCCESS:', data);
-        console.log('Transaction ID:', data.txId);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error updating creator profile:', error);
-    throw error;
-  }
+// ============================================================
+// USDCX TOKEN FUNCTIONS
+// Contract: usdcx-token
+// Mock sBTC and USDCx tokens for testnet testing
+// ============================================================
+
+// Mint test USDCx tokens (testnet only - for demo purposes)
+export const mintTestUSDCx = async (amount, recipient, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.USDCX,        // usdcx-token
+    functionName: USDCX_FUNCTIONS.MINT,
+    functionArgs: [uintCV(amount), principalCV(recipient)],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Test USDCx minted:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Mint cancelled');
+    },
+  };
+  await openContractCall(options);
 };
 
-// UPDATE PUBLIC USER PROFILE
-export const updatePublicUserProfile = async (userAddress, displayName, bio) => {
-  try {
-    console.log('=== UPDATING PUBLIC USER PROFILE ===');
-    console.log('User Address:', userAddress);
-    console.log('Display Name:', displayName);
-    console.log('Bio:', bio);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      Cl.stringUtf8(displayName),
-      Cl.stringUtf8(bio)
-    ];
-    
-    console.log('Function args:', functionArgs);
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'main-v4',
-      functionName: 'update-public-user-profile',
-      functionArgs: functionArgs,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('Profile Update Transaction SUCCESS:', data);
-        console.log('Transaction ID:', data.txId);
-      },
-      onCancel: () => {
-        console.log('Transaction cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error updating public user profile:', error);
-    throw error;
-  }
+// Check USDCx balance of any address (no wallet needed)
+export const getUSDCxBalance = async (address) => {
+  return await readOnly(
+    CONTRACTS.USDCX,                      // usdcx-token
+    USDCX_FUNCTIONS.GET_BALANCE,
+    [principalCV(address)]
+  );
 };
 
-/**
- * MINT TEST USDCx
- * Mints test USDCx tokens for development/testing
- * TESTNET ONLY - This function calls the mint function in usdcx-token
- * which should be disabled or removed in production
- * 
- * @param {string} userAddress - Recipient's Stacks address
- * @param {number} amount - Amount in micro-USDCx (6 decimals)
- * @returns {Promise<Object>} - Transaction result
- */
-export const mintTestUSDCx = async (userAddress, amount) => {
-  try {
-    console.log('=== MINTING TEST USDCx ===');
-    console.log('Recipient:', userAddress);
-    console.log('Amount (micro-USDCx):', amount);
-    console.log('Amount (USDCx):', amount / 1000000);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, uintCV, principalCV } = await import('@stacks/transactions');
-    
-    const functionArgs = [
-      uintCV(amount),              // Amount to mint
-      principalCV(userAddress)     // Recipient address
-    ];
-    
-    console.log('Function args prepared:', functionArgs);
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'usdcx-token',
-      functionName: 'mint',
-      functionArgs: functionArgs,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('SUCCESS: Test USDCx minted successfully!');
-        console.log('Transaction ID:', data.txId);
-        console.log('Explorer:', `https://explorer.hiro.so/txid/${data.txId}?chain=testnet`);
-      },
-      onCancel: () => {
-        console.log('ERROR: Mint cancelled by user');
-        throw new Error('Mint transaction cancelled');
-      }
-    };
-    
-    console.log('Opening wallet for mint approval...');
-    await openContractCall(txOptions);
-    
-    // Return success - the actual txId is logged in onFinish callback
-    return { success: true };
-    
-  } catch (error) {
-    console.error('Error minting test USDCx:', error);
-    throw error;
-  }
+// ============================================================
+// PLATFORM STATS
+// Contract: main-v7
+// Read-only stats for the Glamora platform dashboard
+// ============================================================
+
+// Get overall platform statistics (no wallet needed)
+export const getPlatformStats = async () => {
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_PLATFORM_STATS,
+    []
+  );
 };
 
-/**
- * GET USDCx BALANCE
- */
-export const getUSDCxBalance = async (userAddress) => {
-  try {
-    console.log('Fetching USDCx balance for:', userAddress);
-    
-    const { cvToJSON } = await import('@stacks/transactions');
-    
-    const result = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'usdcx-token',
-      functionName: 'get-balance',
-      functionArgs: [Cl.principal(userAddress)],
-      senderAddress: userAddress,
-    });
-    
-    const jsonResult = cvToJSON(result);
-    const balance = jsonResult.value?.value || jsonResult.value || 0;
-    console.log('USDCx Balance:', balance / 1000000, 'USDCx');
-    
-    return parseInt(balance);
-    
-  } catch (error) {
-    console.error('Error fetching USDCx balance:', error);
-    return 0;
-  }
-};
-
-/**
- * GET VAULT INFO
- */
-export const getVaultInfo = async (userAddress) => {
-  try {
-    console.log('Fetching vault info for:', userAddress);
-    
-    const { cvToJSON } = await import('@stacks/transactions');
-    
-    const result = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'bridge-adapter',
-      functionName: 'get-vault-info',
-      functionArgs: [Cl.principal(userAddress)],
-      senderAddress: userAddress,
-    });
-    
-    const jsonResult = cvToJSON(result);
-    return jsonResult.value || null;
-    
-  } catch (error) {
-    console.error('Error fetching vault info:', error);
-    return null;
-  }
-};
-
-/**
- * GET BATCH STATS
- */
-export const getBatchStats = async () => {
-  try {
-    console.log('Fetching batch stats...');
-    
-    const { cvToJSON } = await import('@stacks/transactions');
-    
-    const result = await fetchCallReadOnlyFunction({
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'bridge-adapter',
-      functionName: 'get-batch-stats',
-      functionArgs: [],
-      senderAddress: CONTRACT_CONFIG.address,
-    });
-    
-    const jsonResult = cvToJSON(result);
-    return jsonResult.value || {
-      'total-batches': 0,
-      'total-savings': 0,
-      'total-transactions': 0
-    };
-    
-  } catch (error) {
-    console.error('Error fetching batch stats:', error);
-    return {
-      'total-batches': 0,
-      'total-savings': 0,
-      'total-transactions': 0
-    };
-  }
-};
-
-/**
- * TIP WITH USDCx
- */
-export const tipWithUSDCx = async (senderAddress, recipientAddress, amountInMicroUSDCx) => {
-  try {
-    console.log('=== SENDING USDCx TIP ===');
-    console.log('Sender:', senderAddress);
-    console.log('Recipient:', recipientAddress);
-    console.log('Amount (micro-USDCx):', amountInMicroUSDCx);
-    
-    const { openContractCall } = await import('@stacks/connect');
-    const { AnchorMode, PostConditionMode, Cl } = await import('@stacks/transactions');
-    
-    // CORRECT: (amount, sender, recipient, memo)
-    const functionArgs = [
-      Cl.uint(amountInMicroUSDCx),              // amount
-      Cl.principal(senderAddress),               // sender
-      Cl.principal(recipientAddress),            // recipient
-      Cl.none()                                  // memo (optional, pass none)
-    ];
-    
-    const txOptions = {
-      network: getNetwork(),
-      contractAddress: CONTRACT_CONFIG.address,
-      contractName: 'usdcx-token',
-      functionName: 'transfer',
-      functionArgs: functionArgs,
-      appDetails: {
-        name: 'Glamora',
-        icon: window.location.origin + '/logo.png',
-      },
-      anchorMode: AnchorMode.Any,
-      postConditionMode: PostConditionMode.Allow,
-      onFinish: (data) => {
-        console.log('✅ TIP SUCCESS!');
-        console.log('TX ID:', data.txId);
-        console.log('Explorer: https://explorer.hiro.so/txid/' + data.txId + '?chain=testnet');
-      },
-      onCancel: () => {
-        throw new Error('User cancelled');
-      }
-    };
-    
-    await openContractCall(txOptions);
-    return { success: true };
-    
-  } catch (error) {
-    console.error('❌ Error:', error);
-    throw error;
-  }
+// Get NFT marketplace statistics (no wallet needed)
+export const getNFTMarketplaceStats = async () => {
+  return await readOnly(
+    CONTRACTS.MAIN,                       // main-v7
+    MAIN_FUNCTIONS.GET_NFT_MARKETPLACE_STATS,
+    []
+  );
 };

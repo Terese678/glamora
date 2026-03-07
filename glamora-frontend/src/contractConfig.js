@@ -1,5 +1,5 @@
 // Contract Configuration for Glamora 
-// Updated for USDCx Integration and Bridge-Adapter
+// for USDCx Integration and Bridge-Adapter
 
 // Network configuration - Stacks testnet
 export const NETWORK_CONFIG = {
@@ -7,10 +7,10 @@ export const NETWORK_CONFIG = {
   name: 'testnet'
 };
 
-// Your deployer address (all contracts deployed here)
+// deployer address (all contracts deployed here)
 export const DEPLOYER_ADDRESS = 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8';
 
-// Main contract configuration (your primary smart contract)
+// Main contract configuration 
 export const CONTRACT_CONFIG = {
   address: DEPLOYER_ADDRESS,
   name: 'main-v7'  // Updated to v7
@@ -30,13 +30,13 @@ export const CONTRACTS = {
     name: 'storage-v3'
   },
   
-  // Bridge adapter for USDCx batching (YOUR INNOVATION!)
+  // Bridge adapter for USDCx batching (OUR INNOVATION!)
   BRIDGE_ADAPTER: {
     address: DEPLOYER_ADDRESS,
     name: 'bridge-adapter'
   },
   
-  // USDCx token contract (REQUIRED FOR COMPETITION)
+  // USDCx token contract 
   USDCX_TOKEN: {
     address: DEPLOYER_ADDRESS,
     name: 'usdcx-token'
@@ -104,17 +104,17 @@ export const CONTRACT_FUNCTIONS = {
 // Main contract functions - same as CONTRACT_FUNCTIONS for compatibility
 export const MAIN_FUNCTIONS = CONTRACT_FUNCTIONS;
 
-// Bridge Adapter Functions (YOUR INNOVATION!)
+// Bridge Adapter Functions (OUR INNOVATION!)
 export const BRIDGE_FUNCTIONS = {
   INITIALIZE_VAULT: 'initialize-vault',
-  GET_VAULT_INFO: 'get-vault-info',
+  GET_VAULT_INFO: 'get-creator-vault-info',
   GET_BATCH_STATS: 'get-batch-stats',
   DEPOSIT_TO_VAULT: 'deposit-to-vault',
   WITHDRAW_FROM_VAULT: 'withdraw-from-vault',
   PROCESS_BATCH: 'process-batch'
 };
 
-// USDCx Token Functions (REQUIRED FOR COMPETITION)
+// USDCx Token Functions 
 export const USDCX_FUNCTIONS = {
   TRANSFER: 'transfer',
   GET_BALANCE: 'get-balance',
@@ -131,18 +131,17 @@ export const SBTC_FUNCTIONS = {
   MINT: 'mint' // Only available in testnet for testing
 };
 
-// NFT-related functions (glamora-nft contract)
+// NFT-related functions (glamora-nft-v2 contract)
 export const NFT_FUNCTIONS = {
-  MINT_NFT: 'mint-fashion-nft',
+  MINT: 'mint-fashion-nft',
   TRANSFER_NFT: 'transfer',
   GET_NFT_OWNER: 'get-owner',
   GET_NFT_URI: 'get-token-uri',
   GET_LAST_TOKEN_ID: 'get-last-token-id',
-  CREATE_COLLECTION: 'create-nft-collection',
-  LIST_NFT: 'list-fashion-nft',
-  UNLIST_NFT: 'unlist-fashion-nft',
-  PURCHASE_NFT: 'purchase-fashion-nft',
-  GET_NFT_LISTING: 'get-nft-listing'
+  LIST_NFT: 'list-nft-for-sale',
+  CANCEL_LISTING: 'cancel-nft-listing',
+  BUY_NFT: 'buy-nft',
+  GET_LISTING: 'get-nft-listing'
 };
 
 // Subscription tiers for Glamora platform
