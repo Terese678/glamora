@@ -28,8 +28,10 @@
 ;; Variables 
 ;;==================================
 
-;; This holds the address of the main contract allowed to store data in our storage system
-(define-data-var authorized-contract principal tx-sender)
+;; this tracks which contracts are allowed to write data to storage
+;; we use a map instead of a single variable so that both main-v7 and bridge-adapter
+;; can write to storage at the same time; a single variable could only hold one
+(define-map authorized-contracts principal bool)
 
 ;; This holds the address of the admin who can update settings (e.g., updating which contract is authorized)
 ;; in our storage system
@@ -396,16 +398,12 @@
 ;;; Private helper functions 
 ;;=====================================
 
-;;The tests failed because the storage contract's authorization only checked 
-;; if calls came from an authorized contract (contract-caller)
-;; but test calls came directly from the deployer with no intermediate contract
-;; so i had to fixed it by allowing both authorized contract calls and direct admin calls
-;; which made all 62 tests pass
 (define-private (is-authorized)
-    (or 
-        ;; allow calls from authorized contract (e.g glamora-nft, main contract)
-        (is-eq contract-caller (var-get authorized-contract))
-        ;; and also allow direct calls from admin (for testing, emergency access, and admin operations)
+    (or
+        ;; Check if the calling contract is in our approved list
+        ;; main-v7 and bridge-adapter are both added during deployment
+        (default-to false (map-get? authorized-contracts contract-caller))
+        ;; Admin wallet can also write directly for emergencies and testing
         (is-eq tx-sender (var-get contract-admin))
     )
 )
@@ -439,8 +437,10 @@
 
 ;; This function shows the address of the "main contract" allowed to store data in our storage system,
 ;; it goes and fetch it
-(define-read-only (get-authorized-contract) 
-    (var-get authorized-contract)
+(define-read-only (get-authorized-contract (contract principal))
+    ;; Returns true if this contract is approved to write to storage
+    ;; Returns false if it has no access or was never added
+    (default-to false (map-get? authorized-contracts contract))
 )
 
 ;; this will grab the address of the admin who can update settings in our storage system
@@ -596,15 +596,15 @@
 ;;====================================================
 
 ;; Admin function to change authorized contract
-(define-public (set-authorized-contract (new-contract principal)) 
+(define-public (set-authorized-contract (new-contract principal) (enabled bool))
     (begin
-        ;; Only admin can change the authorized contract
+        ;; only admin can add or remove contracts from the approved list
         (asserts! (is-admin) ERR-NOT-AUTHORIZED)
 
-        ;; update the authorized contract address to the new one
-        ;; this changes which contract is allowed to write data to our storage
-        (var-set authorized-contract new-contract)
-
+        ;; Pass true to approve a contract, false to remove its access
+        ;; Example: (set-authorized-contract .main-v7 true)
+        ;; Example: (set-authorized-contract .main-v7 false) to revoke
+        (map-set authorized-contracts new-contract enabled)
         (ok true)
     )
 )
@@ -1441,16 +1441,9 @@
 ;; CONTRACT INITIALIZATION
 ;;===============================================
 
-;; @desc: this will executes once during deployment to initialize authorization
-;; it will prevent the problem where storage needs to authorize main,
-;; but main needs authorization to call storage functions
-;; it sets authorized-contract and contract-admin to deployer's address
-;; and executes one-time during contract deployment
 (begin
-    ;; Set deployer as initial authorized contract
-    (var-set authorized-contract tx-sender)
-    
-    ;; Set deployer as contract admin for permission management
+    ;; Set deployer as contract admin
+    ;; After deployment, admin calls set-authorized-contract to approve main-v7 and bridge-adapter
     (var-set contract-admin tx-sender)
 )
 

@@ -64,14 +64,6 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
-            contract-name: sbtc-token
-            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
-            path: "contracts\\sbtc-token.clar"
-            clarity-version: 1
-      epoch: "2.05"
-    - id: 1
-      transactions:
-        - emulated-contract-publish:
             contract-name: storage-v3
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\storage-v2.clar"
@@ -92,12 +84,17 @@ plan:
             path: "contracts\\glamora-nft.clar"
             clarity-version: 4
         - emulated-contract-publish:
+            contract-name: sbtc-token
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\sbtc-token.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
             contract-name: usdcx-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\usdcx-token.clar"
             clarity-version: 4
         - emulated-contract-publish:
-            contract-name: main
+            contract-name: main-v7
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\main.clar"
             clarity-version: 4
