@@ -13,8 +13,8 @@ epoch = '3.3'
 
 [contracts.sbtc-token]
 path = 'contracts/sbtc-token.clar'
-clarity_version = 1
-epoch = '2.05'
+clarity_version = 4
+epoch = '3.3'
 
 [contracts.usdcx-token]
 path = 'contracts/usdcx-token.clar'
@@ -36,7 +36,7 @@ path = 'contracts/glamora-nft.clar'
 clarity_version = 4
 epoch = '3.3'
 
-[contracts.main]
+[contracts.main-v7]
 path = 'contracts/main.clar'
 clarity_version = 4
 epoch = '3.3'

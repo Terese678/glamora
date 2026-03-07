@@ -52,32 +52,34 @@
 )
 
 ;; TRANSFER sBTC BETWEEN WALLETS
-;; This is the core function that powers all Glamora payments (tips, subscriptions, purchases)
-;; When fans support creators, this moves sBTC from their wallet to the creator's wallet
+;; Powers all Glamora payments - tips, subscriptions, and NFT purchases
 ;;
-;; AUTHORIZATION LOGIC:
-;; We allow transfers if EITHER:
-;;   1. tx-sender is the token owner (direct wallet-to-wallet transfer)
-;;   2. contract-caller is the token owner (Glamora main contract calling on user's behalf)
-;; This dual-check lets the main.clar contract process payments during tips/subscriptions
-;; while still protecting against unauthorized transfers
+;; Three ways a transfer is allowed:
+;; 1. You send your own tokens directly from your wallet
+;; 2. A contract sends tokens it owns
+;; 3. Glamora's main contract moves tokens on your behalf when you tip or subscribe
 ;;
-;; @param amount - how many sBTC microtokens to transfer (1 sBTC = 100,000,000 microtokens)
-;; @param sender - wallet address that owns the tokens being transferred
-;; @param recipient - wallet address receiving the tokens
-;; @param memo - optional note attached to transfer (not used currently, but standard SIP-010)
+;; Without rule 3, tipping would fail because main-v7 can't move
+;; your tokens even when you were the one who clicked "Send Tip"
 (define-public (transfer (amount uint) (sender principal) (recipient principal) (memo (optional (buff 34))))
     (begin
         ;; Can't transfer zero or negative amounts
         (asserts! (> amount u0) ERR-INVALID-AMOUNT)
-        
-        ;; Security: only the token owner OR Glamora contract can initiate transfers
-        ;; This prevents random contracts from stealing user funds
-        (asserts! (or (is-eq tx-sender sender) (is-eq contract-caller sender)) ERR-NOT-AUTHORIZED)
-        
-        ;; Execute the actual token transfer using Clarity's built-in fungible token function
+
+        ;; Security: three valid ways a transfer can be authorized:
+        ;; 1. tx-sender is the token owner (direct wallet transfer)
+        ;; 2. contract-caller is the token owner (contract calling on its own behalf)
+        ;; 3. contract-caller is main-v7 (Glamora processing tips/subscriptions on user's behalf)
+        ;; Without check 3, main-v7 cannot move tokens even when the user initiated the action
+        (asserts! (or 
+            (is-eq tx-sender sender)
+            (is-eq contract-caller sender)
+            (is-eq contract-caller .main-v7)
+        ) ERR-NOT-AUTHORIZED)
+
+        ;; Execute the actual token transfer
         (try! (ft-transfer? sbtc amount sender recipient))
-        
+
         (ok true)
     )
 )
