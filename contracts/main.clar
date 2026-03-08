@@ -1384,27 +1384,31 @@
             royalty-amount
             tx-sender
             original-creator
-            none) (err u991))
+            none) 
+            ERR-TRANSFER-FAILED)
 
         ;; PAYMENT STEP 2: Pay seller their 87% share
         (unwrap! (contract-call? .sbtc-token transfer
             seller-amount
             tx-sender
             seller
-            none) (err u992))
+            none) 
+            ERR-TRANSFER-FAILED)
 
         ;; PAYMENT STEP 3: Pay platform its 5% fee
         (unwrap! (contract-call? .sbtc-token transfer
             platform-fee
             tx-sender
             CONTRACT-ADDRESS
-            none) (err u993))
+            none) 
+            ERR-TRANSFER-FAILED)
 
         ;; TRANSFER THE NFT to the buyer
         (unwrap! (contract-call? .glamora-nft-v2 transfer
             token-id
             seller
-            tx-sender) (err u994))
+            tx-sender) 
+            ERR-TRANSFER-FAILED)
 
         ;; Update royalty earnings record in storage
         (unwrap! (contract-call? .storage-v3 update-royalty-earnings
