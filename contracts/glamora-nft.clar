@@ -243,13 +243,12 @@
 ;; - recipient
 (define-public (transfer (token-id uint) (sender principal) (recipient principal))
     (begin
-        ;; Check that the person transfering (must be the tx-sender) is the owner of the
-        ;; NFT so people don't transfer NFT they don't own
-        (asserts! (is-eq tx-sender sender) ERR-NOT-NFT-OWNER)
-
-         ;; ensure that sender and recipient are not the same address
-        ;; this will prevent burning NFTs by sending to yourself accidentally
-        (asserts! (not (is-eq sender recipient)) ERR-TRANSFER-FAILED)
+        ;; Allow transfer if:
+        ;; 1. The NFT owner is transferring directly from their own wallet
+        ;; 2. main-v7 is transferring on the seller's behalf during a marketplace sale
+        ;; Without rule 2, buying NFTs through the marketplace would always fail
+        ;; because main-v7 moves the NFT but tx-sender is the buyer not the seller
+        (asserts! (or (is-eq tx-sender sender) (is-eq contract-caller .main-v7)) ERR-NOT-NFT-OWNER)
 
         ;;Transfer NFT to recipient and unwrap! stops the function's execution 
         ;; and returns an error if transfer fails
