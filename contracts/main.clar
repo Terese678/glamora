@@ -552,14 +552,31 @@
 ;; CLARITY 4: CONTRACT VERIFICATION
 ;;===============================
 
+;;===============================
+;; CLARITY 4: CONTRACT VERIFICATION
+;;===============================
+
+;; VERIFY TRUSTED CONTRACTS
+;; @desc: Before any NFT sale moves money, we fingerprint-check the two contracts
+;; we depend on. If someone swapped in a fake storage or NFT contract,
+;; the fingerprints won't match and the whole transaction reverts instantly.
+;; No fake contract can steal funds or intercept royalty payments.
 (define-private (verify-trusted-contracts)
-    ;; NOTE: contract-hash? is not supported in Clarinet simnet environment
-    ;; Hash verification is disabled for local testing only
-    ;; BEFORE DEPLOYING TO TESTNET: get real hashes from deployed contracts
-    ;; and restore the full verification logic
-    (begin
-        (asserts! true ERR-INVALID-INPUT)
-        (ok u0)
+    (let
+        (
+            ;; Get the live fingerprint of storage-v3
+            (storage-hash (unwrap! (contract-hash? .storage-v3) (err u900)))
+            
+            ;; Get the live fingerprint of glamora-nft-v2
+            (nft-hash (unwrap! (contract-hash? .glamora-nft-v2) (err u901)))
+        )
+
+        ;; Check if the contracts we're talking to are the exact ones we trust
+        ;; if either one has been tampered with or swapped, stop everything immediately
+        (asserts! (is-eq storage-hash STORAGE-V3-HASH) (err u902))
+        (asserts! (is-eq nft-hash GLAMORA-NFT-HASH) (err u903))
+
+        (ok true)
     )
 )
 
