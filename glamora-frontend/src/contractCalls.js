@@ -6,9 +6,6 @@ import {
   CONTRACTS,
   MAIN_FUNCTIONS,
   NFT_FUNCTIONS,
-  CONTENT_CATEGORIES,
-  SUBSCRIPTION_TIERS,
-  MIN_TIP_AMOUNT,
   USDCX_FUNCTIONS,
   BRIDGE_FUNCTIONS,
 } from './contractConfig';
@@ -30,7 +27,7 @@ import {
 
 import { STACKS_TESTNET } from '@stacks/network';
 import { openContractCall } from '@stacks/connect';
-import { fetchCallReadOnlyFunction, cvToValue, Cl } from '@stacks/transactions';
+import { fetchCallReadOnlyFunction, cvToValue } from '@stacks/transactions';
 
 const network = STACKS_TESTNET;
 
@@ -54,23 +51,20 @@ async function readOnly(contractName, functionName, args = []) {
 // Contract: main-v7
 // ============================================================
 
-// Register a new creator profile on chain
 export const createCreatorProfile = async (
+  userAddress,
   username,
-  bio,
-  profileImageUrl,
-  category,
-  userSession
+  displayName,
+  bio
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CREATE_CREATOR_PROFILE,
     functionArgs: [
       stringAsciiCV(username),
-      stringAsciiCV(bio),
-      stringAsciiCV(profileImageUrl),
-      stringAsciiCV(category),
+      stringUtf8CV(displayName),
+      stringUtf8CV(bio),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -86,21 +80,20 @@ export const createCreatorProfile = async (
   await openContractCall(options);
 };
 
-// Register a new public (fan) user profile on chain
 export const createPublicUserProfile = async (
+  userAddress,
   username,
-  bio,
-  profileImageUrl,
-  userSession
+  displayName,
+  bio
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CREATE_PUBLIC_USER_PROFILE,
     functionArgs: [
       stringAsciiCV(username),
-      stringAsciiCV(bio),
-      stringAsciiCV(profileImageUrl),
+      stringUtf8CV(displayName),
+      stringUtf8CV(bio),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -116,23 +109,18 @@ export const createPublicUserProfile = async (
   await openContractCall(options);
 };
 
-// Update an existing creator profile
 export const updateCreatorProfile = async (
-  username,
-  bio,
-  profileImageUrl,
-  category,
-  userSession
+  userAddress,
+  displayName,
+  bio
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UPDATE_CREATOR_PROFILE,
     functionArgs: [
-      stringAsciiCV(username),
-      stringAsciiCV(bio),
-      stringAsciiCV(profileImageUrl),
-      stringAsciiCV(category),
+      stringUtf8CV(displayName),
+      stringUtf8CV(bio),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -148,21 +136,18 @@ export const updateCreatorProfile = async (
   await openContractCall(options);
 };
 
-// Update an existing public user profile
 export const updatePublicUserProfile = async (
-  username,
-  bio,
-  profileImageUrl,
-  userSession
+  userAddress,
+  displayName,
+  bio
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UPDATE_PUBLIC_USER_PROFILE,
     functionArgs: [
-      stringAsciiCV(username),
-      stringAsciiCV(bio),
-      stringAsciiCV(profileImageUrl),
+      stringUtf8CV(displayName),
+      stringUtf8CV(bio),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -178,19 +163,17 @@ export const updatePublicUserProfile = async (
   await openContractCall(options);
 };
 
-// Read a creator profile from chain (no wallet needed)
 export const getCreatorProfile = async (creatorAddress) => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
+    CONTRACTS.MAIN.name,
     MAIN_FUNCTIONS.GET_CREATOR_PROFILE,
     [principalCV(creatorAddress)]
   );
 };
 
-// Read a public user profile from chain (no wallet needed)
 export const getPublicUserProfile = async (userAddress) => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
+    CONTRACTS.MAIN.name,
     MAIN_FUNCTIONS.GET_PUBLIC_USER_PROFILE,
     [principalCV(userAddress)]
   );
@@ -201,7 +184,6 @@ export const getPublicUserProfile = async (userAddress) => {
 // Contract: main-v7
 // ============================================================
 
-// Publish a new content post (fashion content, tips, etc.)
 export const publishContent = async (
   title,
   description,
@@ -212,7 +194,7 @@ export const publishContent = async (
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
-    functionName: 'publish-content',
+    functionName: MAIN_FUNCTIONS.PUBLISH_CONTENT,
     functionArgs: [
       stringUtf8CV(title),
       stringUtf8CV(description),
@@ -234,38 +216,39 @@ export const publishContent = async (
   await openContractCall(options);
 };
 
-// Read a single content post (no wallet needed)
 export const getContent = async (contentId) => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
-    MAIN_FUNCTIONS.GET_CONTENT,
+    CONTRACTS.MAIN.name,
+    MAIN_FUNCTIONS.GET_CONTENT_DETAILS,
     [uintCV(contentId)]
   );
+};
+
+export const getCreatorContent = async (creatorAddress) => {
+  return [];
 };
 
 // ============================================================
 // TIPPING FUNCTIONS
 // Contract: main-v7
-// Fans tip creators with sBTC or USDCx
-// USDCx tips go into the creator's vault (saves gas fees)
-// sBTC tips go directly to the creator's wallet
 // ============================================================
 
-// Send a tip to a creator
 export const tipCreator = async (
-  creatorAddress,
-  amount,
-  paymentToken,   // 'sbtc' or 'usdcx'
+  contentId,
+  tipAmount,
+  message,
+  paymentToken,
   userSession
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.TIP_CREATOR,
     functionArgs: [
-      principalCV(creatorAddress),
-      uintCV(amount),
-      stringAsciiCV(paymentToken),
+      uintCV(contentId),
+      uintCV(tipAmount),
+      stringUtf8CV(message),
+      uintCV(paymentToken),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -286,11 +269,10 @@ export const tipCreator = async (
 // Contract: main-v7
 // ============================================================
 
-// Follow a creator
 export const followUser = async (creatorAddress, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.FOLLOW_USER,
     functionArgs: [principalCV(creatorAddress)],
     postConditionMode: PostConditionMode.Allow,
@@ -307,11 +289,10 @@ export const followUser = async (creatorAddress, userSession) => {
   await openContractCall(options);
 };
 
-// Unfollow a creator
 export const unfollowUser = async (creatorAddress, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UNFOLLOW_USER,
     functionArgs: [principalCV(creatorAddress)],
     postConditionMode: PostConditionMode.Allow,
@@ -331,24 +312,22 @@ export const unfollowUser = async (creatorAddress, userSession) => {
 // ============================================================
 // SUBSCRIPTION FUNCTIONS
 // Contract: main-v7
-// Subscriptions use stacks-block-time for accurate 30-day windows
 // ============================================================
 
-// Subscribe to a creator (Basic, Premium, or VIP tier)
 export const subscribeToCreator = async (
   creatorAddress,
-  tier,             // 'basic', 'premium', or 'vip'
-  paymentToken,     // 'sbtc' or 'usdcx'
+  tier,
+  paymentToken,
   userSession
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.SUBSCRIBE_TO_CREATOR,
     functionArgs: [
       principalCV(creatorAddress),
-      stringAsciiCV(tier),
-      stringAsciiCV(paymentToken),
+      uintCV(tier),
+      uintCV(paymentToken),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -364,11 +343,10 @@ export const subscribeToCreator = async (
   await openContractCall(options);
 };
 
-// Cancel an active subscription
 export const cancelSubscription = async (creatorAddress, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
+    contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CANCEL_SUBSCRIPTION,
     functionArgs: [principalCV(creatorAddress)],
     postConditionMode: PostConditionMode.Allow,
@@ -385,38 +363,40 @@ export const cancelSubscription = async (creatorAddress, userSession) => {
   await openContractCall(options);
 };
 
-// Check if a user has an active subscription to a creator
-export const getUserSubscription = async (userAddress, creatorAddress) => {
+export const getUserSubscription = async (userAddress) => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
+    CONTRACTS.MAIN.name,
     MAIN_FUNCTIONS.GET_USER_SUBSCRIPTION,
-    [principalCV(userAddress), principalCV(creatorAddress)]
+    [principalCV(userAddress)]
   );
 };
 
 // ============================================================
 // NFT FUNCTIONS
 // Contract: glamora-nft-v2
-// Fashion NFTs with permanent 8% creator royalty on every resale
-// Royalty is enforced at contract level - no marketplace can bypass it
 // ============================================================
 
-// Mint a new fashion NFT
-// Creator address is stored at mint time for permanent royalty tracking
 export const mintFashionNFT = async (
-  metadataUrl,
+  collectionId,
+  recipient,
   name,
   description,
+  imageIpfsHash,
   userSession
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.NFT,          // glamora-nft-v2
+    contractName: CONTRACTS.NFT.name,
     functionName: NFT_FUNCTIONS.MINT,
     functionArgs: [
-      stringAsciiCV(metadataUrl),
-      stringAsciiCV(name),
-      stringAsciiCV(description),
+      uintCV(collectionId),
+      principalCV(recipient),
+      stringUtf8CV(name),
+      stringUtf8CV(description),
+      stringAsciiCV(imageIpfsHash),
+      noneCV(),
+      noneCV(),
+      noneCV(),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -432,16 +412,43 @@ export const mintFashionNFT = async (
   await openContractCall(options);
 };
 
-// List an NFT for sale on the marketplace
-export const listNFTForSale = async (tokenId, price, paymentToken, userSession) => {
+export const createNFTCollection = async (
+  collectionName,
+  description,
+  maxEditions,
+  userSession
+) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.NFT,          // glamora-nft-v2
-    functionName: NFT_FUNCTIONS.LIST_NFT, // list-nft-for-sale
+    contractName: CONTRACTS.MAIN.name,
+    functionName: 'create-nft-collection',
+    functionArgs: [
+      stringUtf8CV(collectionName),
+      stringUtf8CV(description),
+      uintCV(maxEditions),
+    ],
+    postConditionMode: PostConditionMode.Allow,
+    network,
+    anchorMode: AnchorMode.Any,
+    onFinish: (data) => {
+      console.log('✅ Collection created:', data.txId);
+      return data;
+    },
+    onCancel: () => {
+      console.log('❌ Collection creation cancelled');
+    },
+  };
+  await openContractCall(options);
+};
+
+export const listNFTForSale = async (tokenId, price, userSession) => {
+  const options = {
+    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+    contractName: CONTRACTS.MAIN.name,
+    functionName: NFT_FUNCTIONS.LIST_NFT,
     functionArgs: [
       uintCV(tokenId),
       uintCV(price),
-      stringAsciiCV(paymentToken),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -457,14 +464,11 @@ export const listNFTForSale = async (tokenId, price, paymentToken, userSession) 
   await openContractCall(options);
 };
 
-// Buy an NFT from the marketplace
-// Payment splits: 87% seller, 8% original creator royalty, 5% platform
-// Royalty goes to the creator who originally minted this NFT - forever
 export const buyNFT = async (tokenId, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7 handles buy-nft with royalty split
-    functionName: NFT_FUNCTIONS.BUY_NFT,  // buy-nft
+    contractName: CONTRACTS.MAIN.name,
+    functionName: NFT_FUNCTIONS.BUY_NFT,
     functionArgs: [uintCV(tokenId)],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -480,12 +484,11 @@ export const buyNFT = async (tokenId, userSession) => {
   await openContractCall(options);
 };
 
-// Remove an NFT listing from the marketplace
 export const cancelNFTListing = async (tokenId, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.NFT,          // glamora-nft-v2
-    functionName: NFT_FUNCTIONS.CANCEL_LISTING, // cancel-nft-listing
+    contractName: CONTRACTS.MAIN.name,
+    functionName: NFT_FUNCTIONS.CANCEL_LISTING,
     functionArgs: [uintCV(tokenId)],
     postConditionMode: PostConditionMode.Allow,
     network,
@@ -501,46 +504,31 @@ export const cancelNFTListing = async (tokenId, userSession) => {
   await openContractCall(options);
 };
 
-// Read NFT details (no wallet needed)
-export const getNFT = async (tokenId) => {
-  return await readOnly(
-    CONTRACTS.NFT,                        // glamora-nft-v2
-    NFT_FUNCTIONS.GET_NFT,
-    [uintCV(tokenId)]
-  );
-};
-
-// Read NFT listing details (no wallet needed)
 export const getNFTListing = async (tokenId) => {
   return await readOnly(
-    CONTRACTS.NFT,                        // glamora-nft-v2
-    NFT_FUNCTIONS.GET_LISTING,
+    CONTRACTS.MAIN.name,
+    'get-nft-listing',
     [uintCV(tokenId)]
   );
 };
 
 // ============================================================
 // VAULT FUNCTIONS
-// Contract: bridge-adapter
-// The vault holds USDCx earnings until the creator hits their
-// withdrawal threshold - one withdrawal, one gas fee.
-// This is how a creator in Lagos keeps $55 instead of losing $40.
+// Contract: main-v7
 // ============================================================
 
-// Read a creator's vault balance and threshold info (no wallet needed)
 export const getCreatorVaultInfo = async (creatorAddress) => {
   return await readOnly(
-    CONTRACTS.BRIDGE_ADAPTER,             // bridge-adapter
-    BRIDGE_FUNCTIONS.GET_VAULT_INFO,      // get-creator-vault-info
+    CONTRACTS.MAIN.name,
+    BRIDGE_FUNCTIONS.GET_VAULT_INFO,
     [principalCV(creatorAddress)]
   );
 };
 
-// Set the USDCx amount threshold before vault auto-withdraws
 export const setVaultThreshold = async (threshold, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.BRIDGE_ADAPTER, // bridge-adapter
+    contractName: CONTRACTS.MAIN.name,
     functionName: BRIDGE_FUNCTIONS.SET_THRESHOLD,
     functionArgs: [uintCV(threshold)],
     postConditionMode: PostConditionMode.Allow,
@@ -557,13 +545,12 @@ export const setVaultThreshold = async (threshold, userSession) => {
   await openContractCall(options);
 };
 
-// Manually withdraw USDCx earnings from the vault to creator's wallet
-export const withdrawFromVault = async (userSession) => {
+export const withdrawFromVault = async (amount, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.BRIDGE_ADAPTER, // bridge-adapter
-    functionName: BRIDGE_FUNCTIONS.WITHDRAW,
-    functionArgs: [],
+    contractName: CONTRACTS.MAIN.name,
+    functionName: 'withdraw-from-vault',
+    functionArgs: [uintCV(amount)],
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
@@ -580,15 +567,12 @@ export const withdrawFromVault = async (userSession) => {
 
 // ============================================================
 // USDCX TOKEN FUNCTIONS
-// Contract: usdcx-token
-// Mock sBTC and USDCx tokens for testnet testing
 // ============================================================
 
-// Mint test USDCx tokens (testnet only - for demo purposes)
 export const mintTestUSDCx = async (amount, recipient, userSession) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.USDCX,        // usdcx-token
+    contractName: CONTRACTS.USDCX_TOKEN.name,
     functionName: USDCX_FUNCTIONS.MINT,
     functionArgs: [uintCV(amount), principalCV(recipient)],
     postConditionMode: PostConditionMode.Allow,
@@ -605,10 +589,9 @@ export const mintTestUSDCx = async (amount, recipient, userSession) => {
   await openContractCall(options);
 };
 
-// Check USDCx balance of any address (no wallet needed)
 export const getUSDCxBalance = async (address) => {
   return await readOnly(
-    CONTRACTS.USDCX,                      // usdcx-token
+    CONTRACTS.USDCX_TOKEN.name,
     USDCX_FUNCTIONS.GET_BALANCE,
     [principalCV(address)]
   );
@@ -616,24 +599,20 @@ export const getUSDCxBalance = async (address) => {
 
 // ============================================================
 // PLATFORM STATS
-// Contract: main-v7
-// Read-only stats for the Glamora platform dashboard
 // ============================================================
 
-// Get overall platform statistics (no wallet needed)
 export const getPlatformStats = async () => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
+    CONTRACTS.MAIN.name,
     MAIN_FUNCTIONS.GET_PLATFORM_STATS,
     []
   );
 };
 
-// Get NFT marketplace statistics (no wallet needed)
 export const getNFTMarketplaceStats = async () => {
   return await readOnly(
-    CONTRACTS.MAIN,                       // main-v7
-    MAIN_FUNCTIONS.GET_NFT_MARKETPLACE_STATS,
+    CONTRACTS.MAIN.name,
+    'get-nft-marketplace-stats',
     []
   );
 };
