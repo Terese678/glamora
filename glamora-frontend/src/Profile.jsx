@@ -6,40 +6,29 @@ import './Profile.css';
 import * as contractCalls from './contractCalls';
 
   const Profile = ({ userAddress, userProfile, isCreator, onProfileUpdate, creatorContent, loadingContent }) => {
-  // State for edit mode
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
-  
-  // State for form fields initialized with current profile data
   const [editedBio, setEditedBio] = useState('');
   const [editedDisplayName, setEditedDisplayName] = useState('');
   
-  // Load current profile data when component mounts or profile changes
   useEffect(() => {
-    // Handle both creator profiles (plain object) and public user profiles (wrapped in value)
     const profileData = userProfile?.value || userProfile;
-    
     if (profileData) {
       setEditedBio(profileData.bio?.value || profileData.bio || '');
       setEditedDisplayName(profileData['display-name']?.value || profileData.displayName || '');
     }
   }, [userProfile]);
   
-  // Handle profile update submission
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    
     if (!userAddress) {
       setMessage('Wallet not connected');
       return;
     }
-    
     try {
       setLoading(true);
       setMessage('Updating your profile...');
-      
-      // Call the appropriate update function based on profile type
       if (isCreator) {
         await contractCalls.updateCreatorProfile(
           userAddress,
@@ -53,44 +42,27 @@ import * as contractCalls from './contractCalls';
           editedBio
         );
       }
-      
       setMessage('Profile updated! Waiting for confirmation...');
-      
-      // Poll for updated profile
       let attempts = 0;
       const maxAttempts = 15;
-      
       const checkUpdate = setInterval(async () => {
         attempts++;
-        
         try {
-          // Fetch updated profile
           const updatedProfile = isCreator 
             ? await contractCalls.getCreatorProfile(userAddress)
             : await contractCalls.getPublicUserProfile(userAddress);
-          
           const profileData = updatedProfile?.value || updatedProfile;
-          
           if (profileData) {
             const newBio = profileData.bio?.value || profileData.bio || '';
-            
-            // Check if bio has actually updated
             if (newBio === editedBio) {
               clearInterval(checkUpdate);
               setMessage('Profile updated successfully!');
               setLoading(false);
               setIsEditing(false);
-              
-              // Notify parent component to refresh profile
-              if (onProfileUpdate) {
-                onProfileUpdate(updatedProfile);
-              }
-              
-              // Clear message after 3 seconds
+              if (onProfileUpdate) onProfileUpdate(updatedProfile);
               setTimeout(() => setMessage(''), 3000);
             }
           }
-          
           if (attempts >= maxAttempts) {
             clearInterval(checkUpdate);
             setMessage('Profile updated! Please refresh to see changes.');
@@ -100,7 +72,6 @@ import * as contractCalls from './contractCalls';
           console.log('Checking for update...', error);
         }
       }, 5000);
-      
     } catch (error) {
       console.error('Error updating profile:', error);
       setMessage('Error updating profile: ' + error.message);
@@ -108,10 +79,8 @@ import * as contractCalls from './contractCalls';
     }
   };
   
-  // Cancel edit mode and reset form
   const handleCancelEdit = () => {
     const profileData = userProfile?.value || userProfile;
-    
     if (profileData) {
       setEditedBio(profileData.bio?.value || profileData.bio || '');
       setEditedDisplayName(profileData['display-name']?.value || profileData.displayName || '');
@@ -120,7 +89,6 @@ import * as contractCalls from './contractCalls';
     setMessage('');
   };
   
-  // If no profile exists
   if (!userProfile) {
     return (
       <div className="profile-container">
@@ -135,7 +103,6 @@ import * as contractCalls from './contractCalls';
     );
   }
   
-  // Handle both creator profiles (plain object) and public user profiles (wrapped)
   const profileData = userProfile.value || userProfile;
   const username = profileData.username?.value || profileData.username || profileData.displayName || 'Unknown';
   const displayName = profileData['display-name']?.value || profileData.displayName || 'Unknown';
@@ -145,7 +112,6 @@ import * as contractCalls from './contractCalls';
   return (
     <div className="profile-container">
       <div className="profile-card">
-        {/* Profile Header */}
         <div className="profile-header">
           <div className="profile-avatar">
             {displayName.charAt(0).toUpperCase()}
@@ -157,24 +123,20 @@ import * as contractCalls from './contractCalls';
           </div>
         </div>
         
-        {/* Status Message */}
         {message && (
           <div className={`profile-message ${message.includes('Error') || message.includes('Wallet') ? 'error' : 'success'}`}>
             {message}
           </div>
         )}
         
-        {/* Profile Details */}
         <div className="profile-details">
           {!isEditing ? (
-            // View Mode
             <>
               <div className="profile-section">
                 <h3 className="section-title">Bio</h3>
                 <p className="profile-bio">{bio}</p>
               </div>
               
-              {/* Published Content Section */}
               {isCreator && (
                 <div className="profile-section">
                   <h3 className="section-title">Published Content</h3>
@@ -230,6 +192,25 @@ import * as contractCalls from './contractCalls';
                             <span>ID: {content.id}</span>
                             <span>Category: {content.category}</span>
                           </div>
+                          {content.ipfsHash && (
+                            
+                              href={`https://gateway.pinata.cloud/ipfs/${content.ipfsHash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: 'inline-block',
+                                marginTop: '10px',
+                                color: '#FFD700',
+                                fontSize: '13px',
+                                textDecoration: 'none',
+                                border: '1px solid #FFD700',
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                              }}
+                            >
+                              {'View Content →'}
+                            </a>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -246,7 +227,6 @@ import * as contractCalls from './contractCalls';
               </button>
             </>
           ) : (
-            // Edit Mode
             <form onSubmit={handleUpdateProfile} className="profile-edit-form">
               <div className="form-group">
                 <label htmlFor="editDisplayName">Display Name</label>

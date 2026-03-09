@@ -1,63 +1,61 @@
 // IPFS Uploader Component for Glamora
-// This component allows users to upload images directly to IPFS via Pinata
-// Once uploaded, users can preview the image and get the IPFS hash
+// This component allows users to upload images and videos directly to IPFS via Pinata
+// Once uploaded, users can preview the content and get the IPFS hash
 
 import React, { useState } from 'react';
 import './IpfsUploader.css';
 
 function IpfsUploader({ onUploadComplete }) {
-  // State to track upload status and file information
   const [uploading, setUploading] = useState(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
   const [ipfsHash, setIpfsHash] = useState(null);
   const [uploadError, setUploadError] = useState(null);
 
-  // Pinata API credentials
   const PINATA_API_KEY = '2f9a5bcc29525dd5ef76';
   const PINATA_SECRET_KEY = '5b6d43149a514842150aa89c11c58b00ed72368dadd89252532b36af3f87e62f';
 
-  // Handle when user selects a file
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
     
     if (selectedFile) {
-      // Validate file is an image
-      if (!selectedFile.type.startsWith('image/')) {
-        setUploadError('Please select an image file');
+      // Validate file is an image or video
+      if (!selectedFile.type.startsWith('image/') && !selectedFile.type.startsWith('video/')) {
+        setUploadError('Please select an image or video file');
         return;
       }
 
-      // Check file size (max 10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setUploadError('File size must be less than 10MB');
+      // 10MB limit for images, 100MB for videos
+      const maxSize = selectedFile.type.startsWith('video/') 
+        ? 100 * 1024 * 1024 
+        : 10 * 1024 * 1024;
+        
+      if (selectedFile.size > maxSize) {
+        setUploadError(selectedFile.type.startsWith('video/') 
+          ? 'Video size must be less than 100MB' 
+          : 'Image size must be less than 10MB');
         return;
       }
 
       setFile(selectedFile);
       setUploadError(null);
-      setIpfsHash(null); // Reset previous upload
+      setIpfsHash(null);
       
-      // Create preview of the image
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-      };
-      reader.readAsDataURL(selectedFile);
+      // Preview for images only
+      if (selectedFile.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onloadend = () => setPreview(reader.result);
+        reader.readAsDataURL(selectedFile);
+      } else {
+        // For video just show filename as confirmation
+        setPreview(null);
+      }
     }
   };
 
-  // Upload file to IPFS via Pinata
   const uploadToIPFS = async () => {
     if (!file) {
       setUploadError('Please select a file first');
-      return;
-    }
-
-    // Check if API keys are configured
-    if (PINATA_API_KEY === 'YOUR_PINATA_API_KEY_HERE' || 
-        PINATA_SECRET_KEY === 'YOUR_PINATA_SECRET_KEY_HERE') {
-      setUploadError('Please configure your Pinata API keys in IpfsUploader.jsx');
       return;
     }
 
@@ -65,21 +63,18 @@ function IpfsUploader({ onUploadComplete }) {
     setUploadError(null);
 
     try {
-      // Create form data for upload
       const formData = new FormData();
       formData.append('file', file);
 
-      // Optional: Add metadata
       const metadata = JSON.stringify({
         name: file.name,
         keyvalues: {
           app: 'Glamora',
-          type: 'fashion-content'
+          type: file.type.startsWith('video/') ? 'fashion-video' : 'fashion-content'
         }
       });
       formData.append('pinataMetadata', metadata);
 
-      // Upload to Pinata
       const response = await fetch('https://api.pinata.cloud/pinning/pinFileToIPFS', {
         method: 'POST',
         headers: {
@@ -98,28 +93,23 @@ function IpfsUploader({ onUploadComplete }) {
       if (data.IpfsHash) {
         console.log('Successfully uploaded to IPFS:', data.IpfsHash);
         setIpfsHash(data.IpfsHash);
-        
-        // Send hash back to parent component (App.jsx)
         onUploadComplete(data.IpfsHash);
-        
         setUploadError(null);
       } else {
         throw new Error('No IPFS hash returned');
       }
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadError(error.message || 'Failed to upload image to IPFS. Please try again.');
+      setUploadError(error.message || 'Failed to upload to IPFS. Please try again.');
     } finally {
       setUploading(false);
     }
   };
 
-  // Generate IPFS gateway URL for viewing
   const getIpfsUrl = (hash) => {
     return `https://gateway.pinata.cloud/ipfs/${hash}`;
   };
 
-  // Reset the uploader
   const resetUploader = () => {
     setFile(null);
     setPreview(null);
@@ -129,30 +119,29 @@ function IpfsUploader({ onUploadComplete }) {
 
   return (
     <div className="ipfs-uploader">
-      <h4>Upload Fashion Image to IPFS</h4>
+      <h4>Upload Fashion Content to IPFS</h4>
       
-      {/* File selection */}
       {!ipfsHash && (
         <div className="upload-section">
           <input
             type="file"
-            accept="image/*"
+            accept="image/*,video/*"
             onChange={handleFileChange}
             disabled={uploading}
             id="file-input"
             className="file-input"
           />
           <label htmlFor="file-input" className="file-label">
-            {file ? file.name : 'Choose Image File'}
+            {file ? file.name : 'Choose Image or Video File'}
           </label>
-          <p className="file-hint">Supported: JPG, PNG, GIF (Max 10MB)</p>
+          <p className="file-hint">Images: JPG, PNG, GIF (Max 10MB) · Videos: MP4, MOV (Max 100MB)</p>
         </div>
       )}
 
       {/* Image preview before upload */}
       {preview && !ipfsHash && (
         <div className="preview-section">
-          <p className="preview-label">Image Preview:</p>
+          <p className="preview-label">Preview:</p>
           <img src={preview} alt="Preview" className="preview-image" />
           
           <div className="upload-actions">
@@ -174,17 +163,44 @@ function IpfsUploader({ onUploadComplete }) {
         </div>
       )}
 
-      {/* Success state - show uploaded image with link */}
+      {/* Video selected but no preview - show upload button directly */}
+      {file && !preview && !ipfsHash && (
+        <div className="preview-section">
+          <p className="preview-label">Video selected: {file.name}</p>
+          
+          <div className="upload-actions">
+            <button 
+              onClick={uploadToIPFS} 
+              disabled={uploading}
+              className="upload-btn"
+            >
+              {uploading ? 'Uploading to IPFS...' : 'Upload to IPFS'}
+            </button>
+            <button 
+              onClick={resetUploader}
+              className="cancel-btn"
+              disabled={uploading}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Success state */}
       {ipfsHash && (
         <div className="success-section">
-          <p className="success-message">Image uploaded successfully to IPFS!</p>
+          <p className="success-message">Content uploaded successfully to IPFS!</p>
           
           <div className="ipfs-result">
-            <img 
-              src={getIpfsUrl(ipfsHash)} 
-              alt="Uploaded to IPFS" 
-              className="uploaded-image"
-            />
+            {/* Show image preview if it was an image */}
+            {preview && (
+              <img 
+                src={getIpfsUrl(ipfsHash)} 
+                alt="Uploaded to IPFS" 
+                className="uploaded-image"
+              />
+            )}
             
             <div className="ipfs-info">
               <p className="ipfs-hash-label">IPFS Hash:</p>
@@ -203,14 +219,13 @@ function IpfsUploader({ onUploadComplete }) {
                 onClick={resetUploader}
                 className="upload-another-btn"
               >
-                Upload Another Image
+                Upload Another File
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Error display */}
       {uploadError && (
         <div className="error-message">
           <p>Error: {uploadError}</p>
@@ -221,4 +236,3 @@ function IpfsUploader({ onUploadComplete }) {
 }
 
 export default IpfsUploader;
-
