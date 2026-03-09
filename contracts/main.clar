@@ -122,18 +122,19 @@
 ;; NFT Royalty percentage paid to original creator on every secondary sale
 (define-constant ROYALTY-PERCENTAGE u8)   ;; 8% to original creator forever
 
-;; CLARITY 4: CONTRACT AUTHENCITY VERIFICATION
+;; CLARITY 4: CONTRACT AUTHENTICITY VERIFICATION
 ;; These are the SHA-512/256 fingerprints of our trusted contracts.
 ;; contract-hash? checks that the contract we are calling matches
 ;; these exact fingerprints before any sensitive operation runs.
-;; if someone swaps in a fake contract, the hash won't match and
-;; the transaction reverts immediately. It ensures you're tslking the exact contract deployed
+;; If someone swaps in a fake contract, the hash won't match and
+;; the transaction reverts immediately.
 ;;
-;; IMPORTANT NOTE: Update these values after every redeployment to testnet.
-;; Run: clarinet contract-hash <contract-name> to get the correct hash.
-;; Leave as empty buffer during development, populated before mainnet.
-(define-constant STORAGE-V3-HASH 0xbfdcddcae06f8b6dc68dde9cdf82d335cfee9600c7b46244e41ad4b334100802)
-(define-constant GLAMORA-NFT-HASH 0x518947381096e1555450add6503a8aa0a5a2ed6419b2c09bd9a22b897dafb88b)
+;; CURRENT STATUS: Zeroed out for initial deployment.
+;; AFTER DEPLOYMENT: Run clarinet contract-hash <contract-name> on the
+;; deployed contracts, then replace the zeros below with the real hashes
+;; and redeploy main-v7 only.
+(define-constant STORAGE-V3-HASH 0x0000000000000000000000000000000000000000000000000000000000000000)
+(define-constant GLAMORA-NFT-HASH 0x0000000000000000000000000000000000000000000000000000000000000000)
 
 ;;=================================
 ;; Data Variables 
