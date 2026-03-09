@@ -11,7 +11,6 @@ import * as contractCalls from './contractCalls';
 
 import UsdcxTipping from './components/UsdcxTipping';
 
-
 function App() {
   // State variables: they store information that changes as users interact
   // its used to keep track of what's happening in the app
@@ -105,8 +104,6 @@ function App() {
   };
 
   // Handle profile updates from Profile component
-  // This function receives updated profile data from the Profile page
-  // and updates the app's state so changes appear everywhere
   const handleProfileUpdate = (updatedProfile) => {
     setUserProfile(updatedProfile);
   };
@@ -117,7 +114,6 @@ function App() {
   };
 
   // This function runs whenever a wallet connects
-  // It receives the full user data object from WalletConnect
   const handleWalletConnect = async (userData) => {
     if (userData && userData.profile && userData.profile.stxAddress) {
       const address = userData.profile.stxAddress.testnet;
@@ -128,245 +124,214 @@ function App() {
       setUserAddress(null);
       setUserProfile(null);
       setIsCreator(false);
-      setProfileType(null); // Reset profile type selection
+      setProfileType(null);
     }
   };
 
-// Load the user's profile from the blockchain
-// This function checks both creator and public user profiles
-// It properly validates that a profile exists before setting state
-const loadUserProfile = async (address) => {
-  try {
-    setLoading(true);
-    
-    // First, try to load as a creator profile
-    const creatorProfile = await contractCalls.getCreatorProfile(address);
-    
-    console.log('Creator profile check result:', creatorProfile);
+  // Load the user's profile from the blockchain
+  const loadUserProfile = async (address) => {
+    try {
+      setLoading(true);
+      
+      const creatorProfile = await contractCalls.getCreatorProfile(address);
+      
+      console.log('Creator profile check result:', creatorProfile);
 
-  // Check if it's a VALID creator profile (check for any non-empty property)
-  if (creatorProfile && typeof creatorProfile === 'object' && Object.keys(creatorProfile).length > 0 && (creatorProfile.username || creatorProfile.displayName || creatorProfile.bio)) {
-    console.log('Found valid creator profile');
-    console.log('Profile data:', creatorProfile);
-    setUserProfile(creatorProfile);
-    setIsCreator(true);
-    loadCreatorContent(address);
-    return;
-  }
-    
-    console.log('No creator profile, checking public user...');
-    
-    const publicProfile = await contractCalls.getPublicUserProfile(address);
-    console.log("Public user profile check result:", publicProfile);
+      if (creatorProfile && typeof creatorProfile === 'object' && Object.keys(creatorProfile).length > 0 && (creatorProfile.username || creatorProfile.displayName || creatorProfile.bio)) {
+        console.log('Found valid creator profile');
+        setUserProfile(creatorProfile);
+        setIsCreator(true);
+        loadCreatorContent(address);
+        return;
+      }
+      
+      console.log('No creator profile, checking public user...');
+      
+      const publicProfile = await contractCalls.getPublicUserProfile(address);
+      console.log("Public user profile check result:", publicProfile);
 
-    if (publicProfile && typeof publicProfile === 'object' && Object.keys(publicProfile).length > 0) {  
-      console.log("Public user profile found!");
-      setUserProfile(publicProfile);
+      if (publicProfile && typeof publicProfile === 'object' && Object.keys(publicProfile).length > 0) {  
+        console.log("Public user profile found!");
+        setUserProfile(publicProfile);
+        setIsCreator(false);
+        return;  
+      }
+      
+      console.log('No profile found - user needs to create one');
+      setUserProfile(null);
       setIsCreator(false);
-      return;  
+      
+    } catch (error) {
+      console.error('Error loading profile:', error);
+      setUserProfile(null);
+      setIsCreator(false);
+    } finally {
+      setLoading(false);
     }
-    
-    // No profile found at all
-    console.log('No profile found - user needs to create one');
-    setUserProfile(null);
-    setIsCreator(false);
-    
-  } catch (error) {
-    console.error('Error loading profile:', error);
-    setUserProfile(null);
-    setIsCreator(false);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-// Load creator's published content
-const loadCreatorContent = async (address) => {
-  if (!address) return;
-  
-  try {
-    setLoadingContent(true);
-    console.log('Loading content for creator:', address);
-    const content = await contractCalls.getCreatorContent(address);
-    console.log('Content loaded:', content);
-    setCreatorContent(content);
-  } catch (error) {
-    console.error('Error loading content:', error);
-    setCreatorContent([]);
-  } finally {
-    setLoadingContent(false);
-  }
-};
+  // Load creator's published content
+  const loadCreatorContent = async (address) => {
+    if (!address) return;
+    
+    try {
+      setLoadingContent(true);
+      console.log('Loading content for creator:', address);
+      const content = await contractCalls.getCreatorContent(address);
+      console.log('Content loaded:', content);
+      setCreatorContent(content);
+    } catch (error) {
+      console.error('Error loading content:', error);
+      setCreatorContent([]);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
 
   // Create a creator profile when the form is submitted
-const handleCreateCreatorProfile = async (e) => {
-  e.preventDefault(); // Stops the page from refreshing
-  
-  if (!userAddress) {
-    setMessage('Please connect your wallet first');
-    return;
-  }
+  const handleCreateCreatorProfile = async (e) => {
+    e.preventDefault();
+    
+    if (!userAddress) {
+      setMessage('Please connect your wallet first');
+      return;
+    }
 
-  try {
-    setLoading(true);
-    setMessage('Creating your creator profile...');
-    
-    // Call the smart contract to create the profile
-    // Creator profiles need: username (creator name), display name, and bio
-    await contractCalls.createCreatorProfile(
-      userAddress,
-      creatorName, // This becomes the username in the contract
-      creatorName, // This becomes the display name (same as username for creators)
-      bio
-    );
-    
-    setMessage(' Profile transaction submitted! Waiting for blockchain confirmation...');
-    
-    // Poll for profile confirmation with better timing
-    let attempts = 0;
-    const maxAttempts = 20; // Try for 100 seconds (20 attempts × 5 seconds each)
-    
-    const checkProfile = setInterval(async () => {
-      attempts++;
-      console.log(`Checking for creator profile... Attempt ${attempts}/${maxAttempts}`);
+    try {
+      setLoading(true);
+      setMessage('Creating your creator profile...');
       
-      try {
-        // Try to fetch the newly created profile from the blockchain
-        const profile = await contractCalls.getCreatorProfile(userAddress);
+      await contractCalls.createCreatorProfile(
+        userAddress,
+        creatorName,
+        creatorName,
+        bio
+      );
+      
+      setMessage(' Profile transaction submitted! Waiting for blockchain confirmation...');
+      
+      let attempts = 0;
+      const maxAttempts = 20;
+      
+      const checkProfile = setInterval(async () => {
+        attempts++;
+        console.log(`Checking for creator profile... Attempt ${attempts}/${maxAttempts}`);
         
-        if (profile && profile.type !== 'none') {
-          // Profile found! Stop checking and update the UI
-          clearInterval(checkProfile);
-          setUserProfile(profile);
-          setIsCreator(true);
-          setMessage('Creator profile created successfully! Welcome to Glamora!');
-          setLoading(false);
+        try {
+          const profile = await contractCalls.getCreatorProfile(userAddress);
           
-          // Clear the form fields
-          setCreatorName('');
-          setBio('');
-          setProfileType(null);
-          
-          // Auto-navigate to home after 2 seconds
-          setTimeout(() => {
-            navigateTo('home', true);
-            setMessage(''); // Clear message after navigation
-          }, 2000);
-          
-        } else if (attempts >= maxAttempts) {
-          // Max attempts reached, but profile might still be processing
-          clearInterval(checkProfile);
-          setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
-          
-          // Auto-refresh the page after 3 seconds
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
-        } else {
-          // Still waiting... update message with countdown
-          const secondsLeft = (maxAttempts - attempts) * 5;
-          setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+          if (profile && profile.type !== 'none') {
+            clearInterval(checkProfile);
+            setUserProfile(profile);
+            setIsCreator(true);
+            setMessage('Creator profile created successfully! Welcome to Glamora!');
+            setLoading(false);
+            
+            setCreatorName('');
+            setBio('');
+            setProfileType(null);
+            
+            setTimeout(() => {
+              navigateTo('home', true);
+              setMessage('');
+            }, 2000);
+            
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkProfile);
+            setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 3000);
+          } else {
+            const secondsLeft = (maxAttempts - attempts) * 5;
+            setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+          }
+        } catch (error) {
+          console.log('Error checking profile:', error);
         }
-      } catch (error) {
-        console.log('Error checking profile:', error);
-        // Don't stop polling on errors, just continue
-      }
-    }, 5000); // Check every 5 seconds
-    
-  } catch (error) {
-    // Handle any errors that occur during profile creation
-    console.error('Error creating profile:', error);
-    setMessage('Error creating profile: ' + error.message);
-    setLoading(false);
-  }
-};
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      setMessage('Error creating profile: ' + error.message);
+      setLoading(false);
+    }
+  };
 
   // Create a public user profile when the form is submitted
-const handleCreatePublicUserProfile = async (e) => {
-  e.preventDefault(); // Stops the page from refreshing
-  
-  if (!userAddress) {
-    setMessage('Please connect your wallet first');
-    return;
-  }
+  const handleCreatePublicUserProfile = async (e) => {
+    e.preventDefault();
+    
+    if (!userAddress) {
+      setMessage('Please connect your wallet first');
+      return;
+    }
 
-  try {
-    setLoading(true);
-    setMessage('Creating your public user profile...');
-    
-    // Call the smart contract to create the public user profile
-    // Public users need: username, display name, and bio
-    const result = await contractCalls.createPublicUserProfile(
-      userAddress,
-      username,
-      displayName,
-      bio
-    );
-    
-    setMessage('Profile transaction submitted! Waiting for blockchain confirmation...');
-    
-    // Poll for profile confirmation with better timing
-    let attempts = 0;
-    const maxAttempts = 20; // Try for 100 seconds
-    
-    const checkProfile = setInterval(async () => {
-      attempts++;
-      console.log(`Checking for public user profile... Attempt ${attempts}/${maxAttempts}`);
+    try {
+      setLoading(true);
+      setMessage('Creating your public user profile...');
       
-      try {
-        // Try to fetch the newly created profile from the blockchain
-        const profile = await contractCalls.getPublicUserProfile(userAddress);
+      const result = await contractCalls.createPublicUserProfile(
+        userAddress,
+        username,
+        displayName,
+        bio
+      );
+      
+      setMessage('Profile transaction submitted! Waiting for blockchain confirmation...');
+      
+      let attempts = 0;
+      const maxAttempts = 20;
+      
+      const checkProfile = setInterval(async () => {
+        attempts++;
+        console.log(`Checking for public user profile... Attempt ${attempts}/${maxAttempts}`);
         
-        if (profile && profile.type !== 'none') {
-          //Profile found! Stop checking and update the UI
-          clearInterval(checkProfile);
-          setUserProfile(profile);
-          setIsCreator(false);
-          setMessage('Public user profile created successfully! Welcome to Glamora!');
-          setLoading(false);
+        try {
+          const profile = await contractCalls.getPublicUserProfile(userAddress);
           
-          // Clear the form fields
-          setUsername('');
-          setDisplayName('');
-          setBio('');
-          setProfileType(null);
-          
-          // Auto-navigate to home after 2 seconds
-          setTimeout(() => {
-            navigateTo('home', true);
-            setMessage('');
-          }, 2000);
-          
-        } else if (attempts >= maxAttempts) {
-          //  Max attempts reached
-          clearInterval(checkProfile);
-          setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
-          
-          // Auto-refresh the page after 3 seconds
-          setTimeout(() => {
-            window.location.reload();
-          }, 3000);
-        } else {
-          // Still waiting... update message with countdown
-          const secondsLeft = (maxAttempts - attempts) * 5;
-          setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+          if (profile && profile.type !== 'none') {
+            clearInterval(checkProfile);
+            setUserProfile(profile);
+            setIsCreator(false);
+            setMessage('Public user profile created successfully! Welcome to Glamora!');
+            setLoading(false);
+            
+            setUsername('');
+            setDisplayName('');
+            setBio('');
+            setProfileType(null);
+            
+            setTimeout(() => {
+              navigateTo('home', true);
+              setMessage('');
+            }, 2000);
+            
+          } else if (attempts >= maxAttempts) {
+            clearInterval(checkProfile);
+            setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
+            
+            setTimeout(() => {
+              window.location.reload();
+            }, 3000);
+          } else {
+            const secondsLeft = (maxAttempts - attempts) * 5;
+            setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
+          }
+        } catch (error) {
+          console.log('Error checking profile:', error);
         }
-      } catch (error) {
-        console.log('Error checking profile:', error);
-        // Don't stop polling on errors, just continue
-      }
-    }, 5000); // Check every 5 seconds
-    
-  } catch (error) {
-    // Handle any errors that occur during profile creation
-    console.error('Error creating profile:', error);
-    setMessage(' Error creating profile: ' + error.message);
-    setLoading(false);
-  }
-};
+      }, 5000);
+      
+    } catch (error) {
+      console.error('Error creating profile:', error);
+      setMessage(' Error creating profile: ' + error.message);
+      setLoading(false);
+    }
+  };
 
   // Publish new fashion content
-  // Now supports IPFS hash for storing images
   const handlePublishContent = async (e) => {
     e.preventDefault();
     
@@ -379,11 +344,8 @@ const handleCreatePublicUserProfile = async (e) => {
       setLoading(true);
       setMessage('Publishing your content...');
       
-      // Generate a content hash for verification
-      // In production, this should be a proper hash of the content
       const generatedHash = '0x' + Math.random().toString(16).substr(2, 64);
       
-      // Convert category name to category number (1-6)
       const categoryMap = {
         'Fashion Show': 1,
         'Lookbook': 2,
@@ -393,20 +355,17 @@ const handleCreatePublicUserProfile = async (e) => {
       };
       const categoryNumber = categoryMap[contentCategory] || 1;
       
-      // Call the smart contract to publish content
-      // Now includes IPFS hash for image storage
       const result = await contractCalls.publishContent(
         userAddress,
         contentTitle,
         contentDescription,
         generatedHash,
-        ipfsHash || null, // Use null if no IPFS hash provided
+        ipfsHash || null,
         categoryNumber
       );
       
       setMessage('Content published successfully! Check your wallet for the transaction.');
       
-      // Clear the form
       setContentTitle('');
       setContentDescription('');
       setIpfsHash('');
@@ -430,10 +389,8 @@ const handleCreatePublicUserProfile = async (e) => {
       setLoading(true);
       setMessage('Sending tip...');
       
-      // Convert the tip amount to the smallest unit (like converting dollars to cents)
       const amountInMicroBTC = parseFloat(tipAmount) * 1000000;
       
-      // Call the smart contract to send the tip
       const result = await contractCalls.tipCreator(
         userAddress,
         tipRecipient,
@@ -442,7 +399,6 @@ const handleCreatePublicUserProfile = async (e) => {
       
       setMessage('Tip sent successfully! Check your wallet for the transaction.');
       
-      // Clear the form
       setTipAmount('');
       setTipRecipient('');
     } catch (error) {
@@ -481,13 +437,13 @@ const handleCreatePublicUserProfile = async (e) => {
     }
   };
 
-  // Buy NFT
+  // Buy NFT — FIXED: was purchaseFashionNFT, now buyNFT
   const handleBuyNFT = async (tokenId, maxPrice) => {
     try {
       setLoading(true);
       setMessage('Processing purchase...');
       
-      await contractCalls.purchaseFashionNFT(parseInt(tokenId), parseFloat(maxPrice));
+      await contractCalls.buyNFT(parseInt(tokenId), parseFloat(maxPrice));
       
       setMessage('NFT purchase initiated! Check your wallet.');
     } catch (error) {
@@ -518,7 +474,6 @@ const handleCreatePublicUserProfile = async (e) => {
       
       setMessage('Collection created! Check your wallet. Fee: 0.05 sBTC');
       
-      // Clear form
       setCollectionName('');
       setCollectionDescription('');
       setMaxEditions('');
@@ -557,7 +512,6 @@ const handleCreatePublicUserProfile = async (e) => {
       
       setMessage('NFT minted successfully! Check your wallet.');
       
-      // Clear form
       setMintCollectionId('');
       setMintRecipient('');
       setMintNftName('');
@@ -570,7 +524,7 @@ const handleCreatePublicUserProfile = async (e) => {
     }
   };
 
-  // List NFT for sale
+  // List NFT for sale — FIXED: was listFashionNFT, now listNFTForSale
   const handleListNFT = async (e) => {
     e.preventDefault();
 
@@ -578,14 +532,13 @@ const handleCreatePublicUserProfile = async (e) => {
       setLoading(true);
       setMessage('Listing NFT for sale...');
       
-      await contractCalls.listFashionNFT(
+      await contractCalls.listNFTForSale(
         parseInt(listTokenId),
         parseFloat(listPrice)
       );
       
       setMessage('NFT listed successfully!');
       
-      // Clear form
       setListTokenId('');
       setListPrice('');
     } catch (error) {
@@ -595,7 +548,7 @@ const handleCreatePublicUserProfile = async (e) => {
     }
   };
 
-  // Unlist NFT
+  // Unlist NFT — FIXED: was unlistFashionNFT, now cancelNFTListing
   const handleUnlistNFT = async () => {
     if (!unlistTokenId) {
       setMessage('Please enter a Token ID');
@@ -606,7 +559,7 @@ const handleCreatePublicUserProfile = async (e) => {
       setLoading(true);
       setMessage('Unlisting NFT...');
       
-      await contractCalls.unlistFashionNFT(parseInt(unlistTokenId));
+      await contractCalls.cancelNFTListing(parseInt(unlistTokenId));
       
       setMessage('NFT unlisted successfully!');
       setUnlistTokenId('');
@@ -618,14 +571,10 @@ const handleCreatePublicUserProfile = async (e) => {
   };
 
   // Helper function to get IPFS image URL
-  // This converts an IPFS hash to a viewable URL
   const getIpfsUrl = (hash) => {
     if (!hash) return null;
-    // Remove 'ipfs://' prefix if present
     const cleanHash = hash.replace('ipfs://', '');
-    // Use Pinata gateway or public IPFS gateway
     return `https://gateway.pinata.cloud/ipfs/${cleanHash}`;
-    // Alternative: return `https://ipfs.io/ipfs/${cleanHash}`;
   };
 
   // This is what gets displayed on the screen
@@ -658,10 +607,9 @@ const handleCreatePublicUserProfile = async (e) => {
         )}
       </nav>
 
-      {/* Main Content Area - Changes based on which button was clicked */}
+      {/* Main Content Area */}
       <main className="main-content">
         
-        {/* Show message if there is one */}
         {message && (
           <div className="message-box">
             <p>{message}</p>
@@ -669,7 +617,6 @@ const handleCreatePublicUserProfile = async (e) => {
           </div>
         )}
 
-        {/* Show loading spinner when processing */}
         {loading && <div className="loading">Processing...</div>}
 
         {/* HOME VIEW */}
@@ -695,7 +642,7 @@ const handleCreatePublicUserProfile = async (e) => {
           </div>
         )}
 
-        {/* PROFILE VIEW - For users with existing profiles */}
+        {/* PROFILE VIEW */}
         {currentView === 'profile' && userProfile && (
           <Profile 
             userAddress={userAddress}
@@ -707,7 +654,7 @@ const handleCreatePublicUserProfile = async (e) => {
           />
         )}
 
-        {/* PROFILE CREATION VIEW - For users without profiles */}
+        {/* PROFILE CREATION VIEW */}
         {currentView === 'profile' && !userProfile && (
           <div className="view">
             <h2>My Profile</h2>
@@ -717,7 +664,6 @@ const handleCreatePublicUserProfile = async (e) => {
             ) : (
               <div className="signup-container">
                 
-                {/* Step 1: Choose profile type */}
                 {!profileType ? (
                   <div className="profile-type-selector">
                     <h3>Choose Your Profile Type</h3>
@@ -741,7 +687,6 @@ const handleCreatePublicUserProfile = async (e) => {
                       </button>
                     </div>
                     
-                    {/* Information section explaining the differences */}
                     <div className="info-section">
                       <h3>What's the difference?</h3>
                       
@@ -769,7 +714,6 @@ const handleCreatePublicUserProfile = async (e) => {
                     </div>
                   </div>
                 ) : profileType === 'creator' ? (
-                  // Step 2a: Show creator signup form
                   <div className="form-container">
                     <button 
                       onClick={goBack} 
@@ -816,7 +760,6 @@ const handleCreatePublicUserProfile = async (e) => {
                     </form>
                   </div>
                 ) : (
-                  // Step 2b: Show public user signup form
                   <div className="form-container">
                     <button 
                       onClick={goBack} 
@@ -922,10 +865,8 @@ const handleCreatePublicUserProfile = async (e) => {
                     />
                   </div>
                   
-                  {/* IPFS Uploader Component */}
                   <IpfsUploader onUploadComplete={(hash) => setIpfsHash(hash)} />
 
-                  {/* Optional: Manual IPFS hash input as fallback */}
                   <div className="form-group">
                    <label>Or paste IPFS Hash manually:</label>
                    <input
@@ -940,15 +881,15 @@ const handleCreatePublicUserProfile = async (e) => {
                   <div className="form-group">
                     <label>Category:</label>
                     <select
-                    value={contentCategory}
-                    onChange={(e) => setContentCategory(e.target.value)}
-                  >
-                    <option value="Fashion Show">Fashion Show</option>
-                    <option value="Lookbook">Lookbook</option>
-                    <option value="Tutorial">Tutorial</option>
-                    <option value="Behind the Scenes">Behind the Scenes</option>
-                    <option value="Review">Review</option>
-                  </select>
+                      value={contentCategory}
+                      onChange={(e) => setContentCategory(e.target.value)}
+                    >
+                      <option value="Fashion Show">Fashion Show</option>
+                      <option value="Lookbook">Lookbook</option>
+                      <option value="Tutorial">Tutorial</option>
+                      <option value="Behind the Scenes">Behind the Scenes</option>
+                      <option value="Review">Review</option>
+                    </select>
                     <small>Choose the category that best fits your content</small>
                   </div>
                   
@@ -1024,7 +965,6 @@ const handleCreatePublicUserProfile = async (e) => {
             ) : (
               <div className="marketplace-container">
                 
-                {/* Marketplace Tabs */}
                 <div className="marketplace-tabs">
                   <button 
                     onClick={() => setMarketplaceTab('browse')}
@@ -1079,7 +1019,6 @@ const handleCreatePublicUserProfile = async (e) => {
                       </button>
                     </div>
 
-                    {/* NFT Details Display */}
                     {nftDetails && (
                       <div className="nft-details-card">
                         <h4>NFT #{browseTokenId}</h4>
@@ -1340,4 +1279,3 @@ const handleCreatePublicUserProfile = async (e) => {
 }
 
 export default App;
-
