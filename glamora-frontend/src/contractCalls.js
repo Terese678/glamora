@@ -20,6 +20,7 @@ import {
   PostConditionMode,
   uintCV,
   stringAsciiCV,
+  stringUtf8CV,
   principalCV,
   boolCV,
   noneCV,
@@ -201,34 +202,33 @@ export const getPublicUserProfile = async (userAddress) => {
 // ============================================================
 
 // Publish a new content post (fashion content, tips, etc.)
-export const createContent = async (
+export const publishContent = async (
   title,
   description,
-  contentUrl,
-  category,
-  isPremium,
-  userSession
+  contentHash,
+  ipfsHash,
+  category
 ) => {
   const options = {
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName: CONTRACTS.MAIN,         // main-v7
-    functionName: MAIN_FUNCTIONS.CREATE_CONTENT,
+    contractName: CONTRACTS.MAIN.name,
+    functionName: 'publish-content',
     functionArgs: [
-      stringAsciiCV(title),
-      stringAsciiCV(description),
-      stringAsciiCV(contentUrl),
-      stringAsciiCV(category),
-      boolCV(isPremium),
+      stringUtf8CV(title),
+      stringUtf8CV(description),
+      bufferCVFromString(contentHash.padEnd(32, '0').slice(0, 32)),
+      ipfsHash ? someCV(stringAsciiCV(ipfsHash)) : noneCV(),
+      uintCV(category),
     ],
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
     onFinish: (data) => {
-      console.log('✅ Content created:', data.txId);
+      console.log('✅ Content published:', data.txId);
       return data;
     },
     onCancel: () => {
-      console.log('❌ Content creation cancelled');
+      console.log('❌ Content publish cancelled');
     },
   };
   await openContractCall(options);

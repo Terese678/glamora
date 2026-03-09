@@ -13,7 +13,8 @@ export const DEPLOYER_ADDRESS = 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8';
 // Main contract configuration 
 export const CONTRACT_CONFIG = {
   address: DEPLOYER_ADDRESS,
-  name: 'main-v7'  // Updated to v7
+  name: 'main-v7',  // Updated to v7
+  DEPLOYER_ADDRESS,
 };
 
 // All deployed contracts with full addresses
@@ -108,10 +109,9 @@ export const MAIN_FUNCTIONS = CONTRACT_FUNCTIONS;
 export const BRIDGE_FUNCTIONS = {
   INITIALIZE_VAULT: 'initialize-vault',
   GET_VAULT_INFO: 'get-creator-vault-info',
-  GET_BATCH_STATS: 'get-batch-stats',
   DEPOSIT_TO_VAULT: 'deposit-to-vault',
-  WITHDRAW_FROM_VAULT: 'withdraw-from-vault',
-  PROCESS_BATCH: 'process-batch'
+  SET_THRESHOLD: 'set-vault-threshold',
+  WITHDRAW: 'complete-vault-withdrawal',
 };
 
 // USDCx Token Functions 
