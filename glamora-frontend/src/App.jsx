@@ -33,7 +33,7 @@ function App() {
   const [loadingContent, setLoadingContent] = useState(false);
   const [contentTitle, setContentTitle] = useState('');
   const [contentDescription, setContentDescription] = useState('');
-  const [contentCategory, setContentCategory] = useState('Fashion');
+  const [contentCategory, setContentCategory] = useState('Fashion Show');
   const [contentHash, setContentHash] = useState(''); // For content verification
   const [ipfsHash, setIpfsHash] = useState(''); // For IPFS image storage
   const [tipAmount, setTipAmount] = useState('');
@@ -385,12 +385,11 @@ const handleCreatePublicUserProfile = async (e) => {
       
       // Convert category name to category number (1-6)
       const categoryMap = {
-        'Fashion': 1,
-        'Streetwear': 2,
-        'HighFashion': 3,
-        'Accessories': 4,
-        'Footwear': 5,
-        'Lifestyle': 6
+        'Fashion Show': 1,
+        'Lookbook': 2,
+        'Tutorial': 3,
+        'Behind the Scenes': 4,
+        'Review': 5,
       };
       const categoryNumber = categoryMap[contentCategory] || 1;
       
@@ -940,17 +939,16 @@ const handleCreatePublicUserProfile = async (e) => {
 
                   <div className="form-group">
                     <label>Category:</label>
-                    <select 
-                      value={contentCategory}
-                      onChange={(e) => setContentCategory(e.target.value)}
-                    >
-                      <option value="Fashion">Fashion</option>
-                      <option value="Streetwear">Streetwear</option>
-                      <option value="HighFashion">High Fashion</option>
-                      <option value="Accessories">Accessories</option>
-                      <option value="Footwear">Footwear</option>
-                      <option value="Lifestyle">Lifestyle</option>
-                    </select>
+                    <select
+                    value={contentCategory}
+                    onChange={(e) => setContentCategory(e.target.value)}
+                  >
+                    <option value="Fashion Show">Fashion Show</option>
+                    <option value="Lookbook">Lookbook</option>
+                    <option value="Tutorial">Tutorial</option>
+                    <option value="Behind the Scenes">Behind the Scenes</option>
+                    <option value="Review">Review</option>
+                  </select>
                     <small>Choose the category that best fits your content</small>
                   </div>
                   
