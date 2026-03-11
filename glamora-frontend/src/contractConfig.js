@@ -10,52 +10,43 @@ export const NETWORK_CONFIG = {
 // deployer address (all contracts deployed here)
 export const DEPLOYER_ADDRESS = 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8';
 
-// Main contract configuration 
 export const CONTRACT_CONFIG = {
   address: DEPLOYER_ADDRESS,
-  name: 'main-v7',  // Updated to v7
+  name: 'main-v11',
   DEPLOYER_ADDRESS,
 };
 
-// All deployed contracts with full addresses
 export const CONTRACTS = {
-  // Main marketplace contract 
   MAIN: {
     address: DEPLOYER_ADDRESS,
-    name: 'main-v7'
+    name: 'main-v11'
   },
   
-  // Storage contract for data management
   STORAGE: {
     address: DEPLOYER_ADDRESS,
-    name: 'storage-v3'
+    name: 'storage-v4'
   },
   
-  // Bridge adapter for USDCx batching (OUR INNOVATION!)
   BRIDGE_ADAPTER: {
     address: DEPLOYER_ADDRESS,
-    name: 'bridge-adapter'
+    name: 'bridge-adapter-v2'
   },
   
-  // USDCx token contract 
   USDCX_TOKEN: {
     address: DEPLOYER_ADDRESS,
     name: 'usdcx-token'
   },
   
-  // sBTC token for payments
   SBTC_TOKEN: {
     address: DEPLOYER_ADDRESS,
     name: 'sbtc-token'
   },
   
-  // NFT contract
   NFT: {
     address: DEPLOYER_ADDRESS,
-    name: 'glamora-nft-v2'
+    name: 'glamora-nft-v6'
   },
   
-  // SIP-009 trait definition
   SIP_009: {
     address: DEPLOYER_ADDRESS,
     name: 'sip-009'

@@ -141,15 +141,6 @@
             (old-caller (var-get authorized-caller))
         )
         (begin
-            ;; Only the admin can change who is authorized
-            ;; If you are not the admin, this stops immediately and returns an error
-            (asserts! (is-eq tx-sender (var-get admin)) ERR-NOT-AUTHORIZED)
-
-            ;; Safety check: prevent setting authorized-caller to the contract itself
-            ;; If this happened, no real person could ever call admin functions again
-            ;; This is a permanent lockout protection
-            (asserts! (not (is-eq new-caller (as-contract tx-sender))) ERR-NOT-AUTHORIZED)
-
             ;; Safety check: prevent setting authorized-caller to a blank/dead address
             ;; The admin must always retain the ability to recover control
             (asserts! (not (is-eq new-caller (var-get admin))) ERR-NOT-AUTHORIZED)
@@ -221,7 +212,7 @@
 ;; If the NFT exists by the number that was inputted (token-id) 
 ;; then it returns IPFS hash and the wallets can show the picture
 (define-read-only (get-token-uri (token-id uint))
-    (ok (match (contract-call? .storage-v3 get-nft-metadata token-id) 
+    (ok (match (contract-call? .storage-v4 get-nft-metadata token-id) 
         nft-data (some (concat "ipfs://" (get image-ipfs-hash nft-data)))
         none))
 )
@@ -306,7 +297,7 @@
 
         ;; NOW Store all the collection information 
         ;; We'll call the storage contract to save - ID, name, creator, description, and max items
-        (unwrap! (contract-call? .storage-v3  store-collection-data 
+        (unwrap! (contract-call? .storage-v4  store-collection-data 
             collection-id 
             collection-name 
             tx-sender 
@@ -357,7 +348,7 @@
     (let
         (
             ;; get collection data to verify it exists and check limits
-            (collection-data (unwrap! (contract-call? .storage-v3 get-collection-data collection-id) ERR-INVALID-INPUT))
+            (collection-data (unwrap! (contract-call? .storage-v4 get-collection-data collection-id) ERR-INVALID-INPUT))
             
             ;; get next NFT ID to assign to this new NFT
             (token-id (+ (var-get total-nfts-minted) u1))
@@ -381,7 +372,7 @@
         (unwrap! (nft-mint? glamora-nft token-id recipient) ERR-TRANSFER-FAILED)
         
         ;; store NFT metadata
-        (unwrap! (contract-call? .storage-v3 store-nft-metadata
+        (unwrap! (contract-call? .storage-v4 store-nft-metadata
             token-id
             name
             description
@@ -391,7 +382,7 @@
             attributes-ipfs-hash) ERR-STORAGE-FAILED)
         
         ;; update collection edition count
-        (unwrap! (contract-call? .storage-v3 update-collection-editions collection-id) ERR-STORAGE-FAILED)
+        (unwrap! (contract-call? .storage-v4 update-collection-editions collection-id) ERR-STORAGE-FAILED)
         
         ;; increment total NFTs minted on platform
         (var-set total-nfts-minted token-id)
@@ -399,7 +390,7 @@
         ;; REGISTER ROYALTY
         ;; Record the original creator permanently so they earn 8% on every future resale.
         ;; This runs once at mint time and can never be changed or overwritten.
-        (unwrap! (contract-call? .storage-v3 register-nft-royalty 
+        (unwrap! (contract-call? .storage-v4 register-nft-royalty 
             token-id 
             tx-sender 
             ROYALTY-PERCENTAGE) 

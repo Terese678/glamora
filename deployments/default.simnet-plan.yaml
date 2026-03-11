@@ -64,12 +64,17 @@ plan:
     - id: 0
       transactions:
         - emulated-contract-publish:
-            contract-name: storage-v3
+            contract-name: storage-v4
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\storage-v2.clar"
             clarity-version: 4
         - emulated-contract-publish:
             contract-name: bridge-adapter
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\bridge-adapter.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: bridge-adapter-v2
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\bridge-adapter.clar"
             clarity-version: 4
@@ -84,6 +89,21 @@ plan:
             path: "contracts\\glamora-nft.clar"
             clarity-version: 4
         - emulated-contract-publish:
+            contract-name: glamora-nft-v3
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\glamora-nft.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: glamora-nft-v4
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\glamora-nft.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: glamora-nft-v5
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\glamora-nft.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
             contract-name: sbtc-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\sbtc-token.clar"
@@ -94,8 +114,28 @@ plan:
             path: "contracts\\usdcx-token.clar"
             clarity-version: 4
         - emulated-contract-publish:
+            contract-name: main-v10
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\main.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
             contract-name: main-v7
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\main.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: main-v8
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\main.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: main-v9
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\main.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: storage-v3
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\storage-v2.clar"
             clarity-version: 4
       epoch: "3.3"

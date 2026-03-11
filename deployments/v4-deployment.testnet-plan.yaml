@@ -1,0 +1,28 @@
+---
+id: 0
+name: v4-deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: glamora-nft-v6
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 100000
+            path: "contracts\\glamora-nft.clar"
+            anchor-block-only: true
+            clarity-version: 4
+            epoch: "3.3"
+        - contract-publish:
+            contract-name: main-v11
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 100000
+            path: "contracts\\main.clar"
+            anchor-block-only: true
+            clarity-version: 4
+            epoch: "3.3"
+      epoch: "3.3"
+      

@@ -544,8 +544,8 @@
 
 ;; GET NFT ROYALTY INFO
 ;; Will return the original creator and royalty details for any NFT
-(define-read-only (get-nft-royalty (token-id uint))
-    (map-get? nft-royalties token-id)
+(define-public (get-nft-royalty (token-id uint))
+    (ok (map-get? nft-royalties token-id))
 )
 
 ;; Get total number of sales for an NFT
