@@ -194,7 +194,7 @@ import * as contractCalls from './contractCalls';
                           </div>
                           {content.ipfsHash && (
                             
-                              href={`https://gateway.pinata.cloud/ipfs/${content.ipfsHash}`}
+                              <a href={`https://gateway.pinata.cloud/ipfs/${content.ipfsHash}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               style={{
