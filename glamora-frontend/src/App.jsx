@@ -188,7 +188,7 @@ function App() {
     }
   };
 
-  // Create a creator profile when the form is submitted
+// Create a creator profile when the form is submitted
   const handleCreateCreatorProfile = async (e) => {
     e.preventDefault();
     
@@ -199,62 +199,56 @@ function App() {
 
     try {
       setLoading(true);
-      setMessage('Creating your creator profile...');
+      setMessage('Opening wallet — please approve the transaction...');
       
-      await contractCalls.createCreatorProfile(
+      // Step 1: Get txId when user approves in wallet
+      const txId = await contractCalls.createCreatorProfile(
         userAddress,
         creatorName,
         creatorName,
         bio
       );
       
-      setMessage(' Profile transaction submitted! Waiting for blockchain confirmation...');
+      // Step 2: Transaction is now in mempool — poll Hiro API for confirmation
+      setMessage(`Transaction submitted! Waiting for blockchain confirmation...`);
+      console.log('Creator profile txId:', txId);
       
-      let attempts = 0;
-      const maxAttempts = 20;
+      const status = await contractCalls.waitForTxConfirmation(txId, setMessage);
       
-      const checkProfile = setInterval(async () => {
-        attempts++;
-        console.log(`Checking for creator profile... Attempt ${attempts}/${maxAttempts}`);
+      if (status === 'success') {
+        // Step 3: Confirmed — now read profile from chain
+        setMessage('Confirmed! Loading your profile...');
+        const profile = await contractCalls.getCreatorProfile(userAddress);
         
-        try {
-          const profile = await contractCalls.getCreatorProfile(userAddress);
-          
-          if (profile && profile.type !== 'none') {
-            clearInterval(checkProfile);
-            setUserProfile(profile);
-            setIsCreator(true);
-            setMessage('Creator profile created successfully! Welcome to Glamora!');
-            setLoading(false);
-            
-            setCreatorName('');
-            setBio('');
-            setProfileType(null);
-            
-            setTimeout(() => {
-              navigateTo('home', true);
-              setMessage('');
-            }, 2000);
-            
-          } else if (attempts >= maxAttempts) {
-            clearInterval(checkProfile);
-            setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 3000);
-          } else {
-            const secondsLeft = (maxAttempts - attempts) * 5;
-            setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
-          }
-        } catch (error) {
-          console.log('Error checking profile:', error);
+        if (profile) {
+          setUserProfile(profile);
+          setIsCreator(true);
+          setCreatorName('');
+          setBio('');
+          setProfileType(null);
+          setMessage('🎉 Creator profile created! Welcome to Glamora!');
+          setTimeout(() => {
+            navigateTo('home', true);
+            setMessage('');
+          }, 2000);
+        } else {
+          // TX confirmed but profile read failed — just reload
+          setMessage('Profile created! Refreshing...');
+          setTimeout(() => window.location.reload(), 2000);
         }
-      }, 5000);
+      } else {
+        // Timeout — transaction still pending
+        setMessage('Transaction is taking longer than usual. Please refresh the page in a minute.');
+      }
       
     } catch (error) {
-      console.error('Error creating profile:', error);
-      setMessage('Error creating profile: ' + error.message);
+      if (error.message === 'Transaction cancelled by user') {
+        setMessage('Profile creation cancelled.');
+      } else {
+        console.error('Error creating profile:', error);
+        setMessage('Error creating profile: ' + error.message);
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -270,63 +264,54 @@ function App() {
 
     try {
       setLoading(true);
-      setMessage('Creating your public user profile...');
+      setMessage('Opening wallet — please approve the transaction...');
       
-      const result = await contractCalls.createPublicUserProfile(
+      // Step 1: Get txId when user approves in wallet
+      const txId = await contractCalls.createPublicUserProfile(
         userAddress,
         username,
         displayName,
         bio
       );
       
-      setMessage('Profile transaction submitted! Waiting for blockchain confirmation...');
+      // Step 2: Poll for confirmation
+      setMessage(`Transaction submitted! Waiting for blockchain confirmation...`);
+      console.log('Public user profile txId:', txId);
       
-      let attempts = 0;
-      const maxAttempts = 20;
+      const status = await contractCalls.waitForTxConfirmation(txId, setMessage);
       
-      const checkProfile = setInterval(async () => {
-        attempts++;
-        console.log(`Checking for public user profile... Attempt ${attempts}/${maxAttempts}`);
+      if (status === 'success') {
+        setMessage('Confirmed! Loading your profile...');
+        const profile = await contractCalls.getPublicUserProfile(userAddress);
         
-        try {
-          const profile = await contractCalls.getPublicUserProfile(userAddress);
-          
-          if (profile && profile.type !== 'none') {
-            clearInterval(checkProfile);
-            setUserProfile(profile);
-            setIsCreator(false);
-            setMessage('Public user profile created successfully! Welcome to Glamora!');
-            setLoading(false);
-            
-            setUsername('');
-            setDisplayName('');
-            setBio('');
-            setProfileType(null);
-            
-            setTimeout(() => {
-              navigateTo('home', true);
-              setMessage('');
-            }, 2000);
-            
-          } else if (attempts >= maxAttempts) {
-            clearInterval(checkProfile);
-            setMessage('Profile created! Blockchain confirmation is taking longer than usual. Refreshing page...');
-            
-            setTimeout(() => {
-              window.location.reload();
-            }, 3000);
-          } else {
-            const secondsLeft = (maxAttempts - attempts) * 5;
-            setMessage(`Waiting for blockchain confirmation... (${secondsLeft}s remaining)`);
-          }
-        } catch (error) {
-          console.log('Error checking profile:', error);
+        if (profile) {
+          setUserProfile(profile);
+          setIsCreator(false);
+          setUsername('');
+          setDisplayName('');
+          setBio('');
+          setProfileType(null);
+          setMessage('🎉 Profile created! Welcome to Glamora!');
+          setTimeout(() => {
+            navigateTo('home', true);
+            setMessage('');
+          }, 2000);
+        } else {
+          setMessage('Profile created! Refreshing...');
+          setTimeout(() => window.location.reload(), 2000);
         }
-      }, 5000);
+      } else {
+        setMessage('Transaction is taking longer than usual. Please refresh the page in a minute.');
+      }
       
     } catch (error) {
-      console.error('Error creating profile:', error);
-      setMessage(' Error creating profile: ' + error.message);
+      if (error.message === 'Transaction cancelled by user') {
+        setMessage('Profile creation cancelled.');
+      } else {
+        console.error('Error creating profile:', error);
+        setMessage('Error creating profile: ' + error.message);
+      }
+    } finally {
       setLoading(false);
     }
   };
