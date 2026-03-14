@@ -60,7 +60,7 @@
 
 ;; CONTRACT REFERENCES
 (define-constant STORAGE-CONTRACT .storage-v4)
-(define-constant MAIN-CONTRACT .main-v7)
+(define-constant MAIN-CONTRACT .main-v11)
 (define-constant USDCX-CONTRACT .usdcx-token)
 
 ;;===============================

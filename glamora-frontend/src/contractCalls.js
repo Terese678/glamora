@@ -1,5 +1,5 @@
 // Contract Calls for Glamora
-// All functions here call your deployed Clarity smart contracts on Stacks testnet
+// All functions here call deployed Clarity smart contracts on Stacks testnet
 
 import {
   CONTRACT_CONFIG,
@@ -11,15 +11,12 @@ import {
 } from './contractConfig';
 
 import {
-  makeContractCall,
-  broadcastTransaction,
   AnchorMode,
   PostConditionMode,
   uintCV,
   stringAsciiCV,
   stringUtf8CV,
   principalCV,
-  boolCV,
   noneCV,
   someCV,
   bufferCVFromString,
@@ -32,32 +29,119 @@ import { fetchCallReadOnlyFunction, cvToValue } from '@stacks/transactions';
 const network = STACKS_TESTNET;
 
 // ============================================================
-// HELPER: Read-only contract call (no wallet needed)
+// HELPER: Read-only contract call via Hiro REST API
 // ============================================================
 async function readOnly(contractName, functionName, args = []) {
-  const result = await fetchCallReadOnlyFunction({
-    contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
-    contractName,
-    functionName,
-    functionArgs: args,
-    network,
-    senderAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+  const { serializeCV } = await import('@stacks/transactions');
+  const serializedArgs = args.map(arg => {
+    const bytes = serializeCV(arg);
+    return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
   });
-  return cvToValue(result);
+
+  const url = `https://api.testnet.hiro.so/v2/contracts/call-read/${CONTRACT_CONFIG.DEPLOYER_ADDRESS}/${contractName}/${functionName}`;
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sender: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
+      arguments: serializedArgs,
+    }),
+  });
+
+  const data = await response.json();
+  
+  if (!data.okay) {
+    throw new Error(`Contract call failed: ${data.cause || JSON.stringify(data)}`);
+  }
+
+  const { deserializeCV } = await import('@stacks/transactions');
+  const resultCV = deserializeCV(data.result);
+  return cvToValue(resultCV);
+}
+
+// ============================================================
+// HELPER: Wrap openContractCall to capture txId via onFinish
+// Returns a Promise that resolves with txId when user approves,
+// or rejects if user cancels.
+// ============================================================
+function openContractCallWithTxId(options) {
+  return new Promise((resolve, reject) => {
+    openContractCall({
+      ...options,
+      onFinish: (data) => {
+        console.log('✅ TX submitted:', data.txId);
+        resolve(data.txId);
+      },
+      onCancel: () => {
+        console.log('❌ User cancelled transaction');
+        reject(new Error('Transaction cancelled by user'));
+      },
+    });
+  });
+}
+
+// ============================================================
+// HELPER: Poll Hiro API until transaction is confirmed
+// ============================================================
+export async function waitForTxConfirmation(txId, onProgress) {
+  const maxAttempts = 24; // 24 * 10s = 4 minutes max
+  let attempts = 0;
+
+  return new Promise((resolve, reject) => {
+    const interval = setInterval(async () => {
+      attempts++;
+      try {
+        const url = `https://api.testnet.hiro.so/extended/v1/tx/${txId}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        console.log(`TX status attempt ${attempts}:`, data.tx_status);
+
+        if (data.tx_status === 'success') {
+          clearInterval(interval);
+          resolve('success');
+        } else if (data.tx_status === 'abort_by_response' || data.tx_status === 'abort_by_post_condition') {
+          clearInterval(interval);
+          reject(new Error(`Transaction failed on chain: ${data.tx_status}`));
+        } else if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          // Don't reject - tx may still confirm, just taking long
+          resolve('timeout');
+        } else {
+          const secondsLeft = (maxAttempts - attempts) * 10;
+          if (onProgress) onProgress(`Waiting for blockchain confirmation... (~${secondsLeft}s remaining)`);
+        }
+      } catch (err) {
+        console.log('Error checking tx status:', err);
+      }
+    }, 10000); // check every 10 seconds
+  });
+}
+
+// ============================================================
+// HELPER: Check if a profile is valid (not empty/none)
+// ============================================================
+function isValidProfile(profile) {
+  if (!profile) return false;
+  if (typeof profile !== 'object') return false;
+  // Clarity 'none' comes back as null or {type:'none'} or empty
+  if (profile === null) return false;
+  if (profile.type === 'none') return false;
+  // Check it has actual data
+  const keys = Object.keys(profile);
+  if (keys.length === 0) return false;
+  // Must have at least one meaningful field
+  return !!(profile.username || profile['display-name'] || profile.bio || 
+            profile.displayName || profile.name);
 }
 
 // ============================================================
 // CREATOR PROFILE FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
-export const createCreatorProfile = async (
-  userAddress,
-  username,
-  displayName,
-  bio
-) => {
-  const options = {
+export const createCreatorProfile = async (userAddress, username, displayName, bio) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CREATE_CREATOR_PROFILE,
@@ -69,24 +153,11 @@ export const createCreatorProfile = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Creator profile created:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Creator profile creation cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const createPublicUserProfile = async (
-  userAddress,
-  username,
-  displayName,
-  bio
-) => {
-  const options = {
+export const createPublicUserProfile = async (userAddress, username, displayName, bio) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CREATE_PUBLIC_USER_PROFILE,
@@ -98,23 +169,11 @@ export const createPublicUserProfile = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Public user profile created:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Public user profile creation cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const updateCreatorProfile = async (
-  userAddress,
-  displayName,
-  bio
-) => {
-  const options = {
+export const updateCreatorProfile = async (userAddress, displayName, bio) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UPDATE_CREATOR_PROFILE,
@@ -125,23 +184,11 @@ export const updateCreatorProfile = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Creator profile updated:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Creator profile update cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const updatePublicUserProfile = async (
-  userAddress,
-  displayName,
-  bio
-) => {
-  const options = {
+export const updatePublicUserProfile = async (userAddress, displayName, bio) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UPDATE_PUBLIC_USER_PROFILE,
@@ -152,46 +199,48 @@ export const updatePublicUserProfile = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Public user profile updated:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Public user profile update cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 export const getCreatorProfile = async (creatorAddress) => {
-  return await readOnly(
-    CONTRACTS.MAIN.name,
-    MAIN_FUNCTIONS.GET_CREATOR_PROFILE,
-    [principalCV(creatorAddress)]
-  );
+  try {
+    const result = await readOnly(
+      CONTRACTS.MAIN.name,
+      MAIN_FUNCTIONS.GET_CREATOR_PROFILE,
+      [principalCV(creatorAddress)]
+    );
+    return isValidProfile(result) ? result : null;
+  } catch (e) {
+    return null;
+  }
 };
 
 export const getPublicUserProfile = async (userAddress) => {
-  return await readOnly(
-    CONTRACTS.MAIN.name,
-    MAIN_FUNCTIONS.GET_PUBLIC_USER_PROFILE,
-    [principalCV(userAddress)]
-  );
+  try {
+    const result = await readOnly(
+      CONTRACTS.MAIN.name,
+      MAIN_FUNCTIONS.GET_PUBLIC_USER_PROFILE,
+      [principalCV(userAddress)]
+    );
+    return isValidProfile(result) ? result : null;
+  } catch (e) {
+    return null;
+  }
 };
 
 // ============================================================
 // CONTENT FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
 export const publishContent = async (
+  userAddress,
   title,
   description,
   contentHash,
   ipfsHash,
   category
 ) => {
-  const options = {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.PUBLISH_CONTENT,
@@ -205,15 +254,7 @@ export const publishContent = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Content published:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Content publish cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 export const getContent = async (contentId) => {
@@ -230,17 +271,10 @@ export const getCreatorContent = async (creatorAddress) => {
 
 // ============================================================
 // TIPPING FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
-export const tipCreator = async (
-  contentId,
-  tipAmount,
-  message,
-  paymentToken,
-  userSession
-) => {
-  const options = {
+export const tipCreator = async (contentId, tipAmount, message, paymentToken) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.TIP_CREATOR,
@@ -253,24 +287,15 @@ export const tipCreator = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Tip sent:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Tip cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 // ============================================================
 // FOLLOW FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
-export const followUser = async (creatorAddress, userSession) => {
-  const options = {
+export const followUser = async (creatorAddress) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.FOLLOW_USER,
@@ -278,19 +303,11 @@ export const followUser = async (creatorAddress, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Followed creator:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Follow cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const unfollowUser = async (creatorAddress, userSession) => {
-  const options = {
+export const unfollowUser = async (creatorAddress) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.UNFOLLOW_USER,
@@ -298,29 +315,15 @@ export const unfollowUser = async (creatorAddress, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Unfollowed creator:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Unfollow cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 // ============================================================
 // SUBSCRIPTION FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
-export const subscribeToCreator = async (
-  creatorAddress,
-  tier,
-  paymentToken,
-  userSession
-) => {
-  const options = {
+export const subscribeToCreator = async (creatorAddress, tier, paymentToken) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.SUBSCRIBE_TO_CREATOR,
@@ -332,19 +335,11 @@ export const subscribeToCreator = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Subscribed to creator:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Subscription cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const cancelSubscription = async (creatorAddress, userSession) => {
-  const options = {
+export const cancelSubscription = async (creatorAddress) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: MAIN_FUNCTIONS.CANCEL_SUBSCRIPTION,
@@ -352,15 +347,7 @@ export const cancelSubscription = async (creatorAddress, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Subscription cancelled:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Cancel subscription aborted');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 export const getUserSubscription = async (userAddress) => {
@@ -373,18 +360,10 @@ export const getUserSubscription = async (userAddress) => {
 
 // ============================================================
 // NFT FUNCTIONS
-// Contract: glamora-nft-v2
 // ============================================================
 
-export const mintFashionNFT = async (
-  collectionId,
-  recipient,
-  name,
-  description,
-  imageIpfsHash,
-  userSession
-) => {
-  const options = {
+export const mintFashionNFT = async (collectionId, recipient, name, description, imageIpfsHash) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.NFT.name,
     functionName: NFT_FUNCTIONS.MINT,
@@ -401,24 +380,11 @@ export const mintFashionNFT = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ NFT minted:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ NFT mint cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const createNFTCollection = async (
-  collectionName,
-  description,
-  maxEditions,
-  userSession
-) => {
-  const options = {
+export const createNFTCollection = async (collectionName, description, maxEditions) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: 'create-nft-collection',
@@ -430,19 +396,11 @@ export const createNFTCollection = async (
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Collection created:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Collection creation cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const listNFTForSale = async (tokenId, price, userSession) => {
-  const options = {
+export const listNFTForSale = async (tokenId, price) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: NFT_FUNCTIONS.LIST_NFT,
@@ -453,19 +411,11 @@ export const listNFTForSale = async (tokenId, price, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ NFT listed for sale:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ NFT listing cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const buyNFT = async (tokenId, userSession) => {
-  const options = {
+export const buyNFT = async (tokenId) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: NFT_FUNCTIONS.BUY_NFT,
@@ -473,19 +423,11 @@ export const buyNFT = async (tokenId, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ NFT purchased:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ NFT purchase cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const cancelNFTListing = async (tokenId, userSession) => {
-  const options = {
+export const cancelNFTListing = async (tokenId) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: NFT_FUNCTIONS.CANCEL_LISTING,
@@ -493,15 +435,7 @@ export const cancelNFTListing = async (tokenId, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ NFT listing cancelled:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Cancel listing aborted');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 export const getNFTListing = async (tokenId) => {
@@ -514,7 +448,6 @@ export const getNFTListing = async (tokenId) => {
 
 // ============================================================
 // VAULT FUNCTIONS
-// Contract: main-v7
 // ============================================================
 
 export const getCreatorVaultInfo = async (creatorAddress) => {
@@ -525,8 +458,8 @@ export const getCreatorVaultInfo = async (creatorAddress) => {
   );
 };
 
-export const setVaultThreshold = async (threshold, userSession) => {
-  const options = {
+export const setVaultThreshold = async (threshold) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: BRIDGE_FUNCTIONS.SET_THRESHOLD,
@@ -534,19 +467,11 @@ export const setVaultThreshold = async (threshold, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Vault threshold set:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Set threshold cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
-export const withdrawFromVault = async (amount, userSession) => {
-  const options = {
+export const withdrawFromVault = async (amount) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.MAIN.name,
     functionName: 'withdraw-from-vault',
@@ -554,23 +479,15 @@ export const withdrawFromVault = async (amount, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Vault withdrawal complete:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Vault withdrawal cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 // ============================================================
 // USDCX TOKEN FUNCTIONS
 // ============================================================
 
-export const mintTestUSDCx = async (amount, recipient, userSession) => {
-  const options = {
+export const mintTestUSDCx = async (amount, recipient) => {
+  return openContractCallWithTxId({
     contractAddress: CONTRACT_CONFIG.DEPLOYER_ADDRESS,
     contractName: CONTRACTS.USDCX_TOKEN.name,
     functionName: USDCX_FUNCTIONS.MINT,
@@ -578,15 +495,7 @@ export const mintTestUSDCx = async (amount, recipient, userSession) => {
     postConditionMode: PostConditionMode.Allow,
     network,
     anchorMode: AnchorMode.Any,
-    onFinish: (data) => {
-      console.log('✅ Test USDCx minted:', data.txId);
-      return data;
-    },
-    onCancel: () => {
-      console.log('❌ Mint cancelled');
-    },
-  };
-  await openContractCall(options);
+  });
 };
 
 export const getUSDCxBalance = async (address) => {

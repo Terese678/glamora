@@ -1,0 +1,35 @@
+---
+id: 2
+name: authorize-storage-v4
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstream.info/testnet/api"
+plan:
+  batches:
+    - id: 0
+      epoch: "3.3"
+      transactions:
+        - contract-call:
+            contract-id: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v4"
+            expected-sender: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+            method: "set-authorized-contract"
+            parameters:
+              - "'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.main-v11"
+              - "true"
+            cost: 100000
+        - contract-call:
+            contract-id: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v4"
+            expected-sender: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+            method: "set-authorized-contract"
+            parameters:
+              - "'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.bridge-adapter-v2"
+              - "true"
+            cost: 100000
+        - contract-call:
+            contract-id: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.storage-v4"
+            expected-sender: "STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8"
+            method: "set-authorized-contract"
+            parameters:
+              - "'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8.glamora-nft-v6"
+              - "true"
+            cost: 100000

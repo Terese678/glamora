@@ -1,0 +1,24 @@
+---
+id: 3
+name: v5-deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstream.info/testnet/api"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: bridge-adapter-v3
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 100000
+            path: contracts/bridge-adapter.clar
+            clarity-version: 4
+            epoch: "3.3"
+        - contract-publish:
+            contract-name: main-v12
+            expected-sender: STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8
+            cost: 100000
+            path: contracts/main.clar
+            clarity-version: 4
+            epoch: "3.3"

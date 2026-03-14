@@ -1,4 +1,4 @@
-[project]
+﻿[project]
 name = 'glamora'
 description = 'A decentralized fashion social platform with sBTC payments and Bitcoin-native royalties'
 authors = ['Timothy Terese Chimbiv']
@@ -21,43 +21,13 @@ path = 'contracts/usdcx-token.clar'
 clarity_version = 4
 epoch = '3.3'
 
-[contracts.storage-v3]
-path = 'contracts/storage-v2.clar'
-clarity_version = 4
-epoch = '3.3'
-
 [contracts.storage-v4]
 path = 'contracts/storage-v2.clar'
 clarity_version = 4
 epoch = '3.3'
 
-[contracts.bridge-adapter]
+[contracts.bridge-adapter-v3]
 path = 'contracts/bridge-adapter.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.bridge-adapter-v2]
-path = 'contracts/bridge-adapter.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.glamora-nft-v2]
-path = 'contracts/glamora-nft.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.glamora-nft-v3]
-path = 'contracts/glamora-nft.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.glamora-nft-v4]
-path = 'contracts/glamora-nft.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.glamora-nft-v5]
-path = 'contracts/glamora-nft.clar'
 clarity_version = 4
 epoch = '3.3'
 
@@ -66,27 +36,7 @@ path = 'contracts/glamora-nft.clar'
 clarity_version = 4
 epoch = '3.3'
 
-[contracts.main-v7]
-path = 'contracts/main.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.main-v8]
-path = 'contracts/main.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.main-v9]
-path = 'contracts/main.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.main-v10]
-path = 'contracts/main.clar'
-clarity_version = 4
-epoch = '3.3'
-
-[contracts.main-v11]
+[contracts.main-v12]
 path = 'contracts/main.clar'
 clarity_version = 4
 epoch = '3.3'

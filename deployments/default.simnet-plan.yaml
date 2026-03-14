@@ -104,6 +104,11 @@ plan:
             path: "contracts\\glamora-nft.clar"
             clarity-version: 4
         - emulated-contract-publish:
+            contract-name: glamora-nft-v6
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\glamora-nft.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
             contract-name: sbtc-token
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\sbtc-token.clar"
@@ -115,6 +120,11 @@ plan:
             clarity-version: 4
         - emulated-contract-publish:
             contract-name: main-v10
+            emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
+            path: "contracts\\main.clar"
+            clarity-version: 4
+        - emulated-contract-publish:
+            contract-name: main-v11
             emulated-sender: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM
             path: "contracts\\main.clar"
             clarity-version: 4
