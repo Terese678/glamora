@@ -499,11 +499,27 @@ export const mintTestUSDCx = async (amount, recipient) => {
 };
 
 export const getUSDCxBalance = async (address) => {
-  return await readOnly(
+  const result = await readOnly(
     CONTRACTS.USDCX_TOKEN.name,
     USDCX_FUNCTIONS.GET_BALANCE,
     [principalCV(address)]
   );
+  if (result && typeof result === 'object' && result.value !== undefined) {
+    return Number(result.value);
+  }
+  return Number(result) || 0;
+};
+
+export const getSbtcBalance = async (address) => {
+  const result = await readOnly(
+    CONTRACTS.SBTC_TOKEN.name,
+    'get-balance',
+    [principalCV(address)]
+  );
+  if (result && typeof result === 'object' && result.value !== undefined) {
+    return Number(result.value) / 100000000;
+  }
+  return 0;
 };
 
 // ============================================================

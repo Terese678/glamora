@@ -36,6 +36,7 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
   // ============================================================
   
   const [balance, setBalance] = useState(0);
+  const [sbtcBalance, setSbtcBalance] = useState(0);
   const [balanceHighlight, setBalanceHighlight] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -52,6 +53,7 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
   useEffect(() => {
     if (userAddress) {
       loadBalance();
+      loadSbtcBalance();
       loadVaultInfo();
       loadBatchStats();
     }
@@ -64,6 +66,16 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
       console.log('USDCx Balance loaded:', formatUSDCxAmount(microBalance), 'USDCx');
     } catch (error) {
       console.error('Error loading balance:', error);
+    }
+  };
+
+  const loadSbtcBalance = async () => {
+    try {
+      const result = await contractCalls.getSbtcBalance(userAddress);
+      setSbtcBalance(result);
+      console.log('sBTC Balance loaded:', result, 'sBTC');
+    } catch (error) {
+      console.error('Error loading sBTC balance:', error);
     }
   };
 
@@ -124,7 +136,6 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
       setLoading(false);
     }
   };
-
 
    //============================================================
    // TIPPING LOGIC - USDCx
@@ -260,6 +271,10 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
               <span className="balance-label">USDCx Balance</span>
               <span className={`balance-amount ${balanceHighlight ? 'updated' : ''}`}>
                 {formatUSDCxAmount(balance)} USDCx
+              </span>
+              <span className="balance-label">sBTC BALANCE</span>
+              <span className="balance-amount">
+                {sbtcBalance.toFixed(8)} sBTC
               </span>
             </div>
             <div className="balance-actions">
