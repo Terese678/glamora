@@ -22,11 +22,10 @@ import {
   bufferCVFromString,
 } from '@stacks/transactions';
 
-import { STACKS_TESTNET } from '@stacks/network';
 import { openContractCall } from '@stacks/connect';
-import { fetchCallReadOnlyFunction, cvToValue } from '@stacks/transactions';
+import { cvToValue } from '@stacks/transactions';
 
-const network = STACKS_TESTNET;
+const network = 'testnet';
 
 // ============================================================
 // HELPER: Read-only contract call via Hiro REST API
@@ -122,18 +121,17 @@ export async function waitForTxConfirmation(txId, onProgress) {
 // ============================================================
 // HELPER: Check if a profile is valid (not empty/none)
 // ============================================================
-function isValidProfile(profile) {
-  if (!profile) return false;
-  if (typeof profile !== 'object') return false;
-  // Clarity 'none' comes back as null or {type:'none'} or empty
-  if (profile === null) return false;
-  if (profile.type === 'none') return false;
-  // Check it has actual data
-  const keys = Object.keys(profile);
-  if (keys.length === 0) return false;
-  // Must have at least one meaningful field
-  return !!(profile.username || profile['display-name'] || profile.bio || 
-            profile.displayName || profile.name);
+function isValidProfile(result) {
+  if (!result) return false;
+  const data = result.value || result;
+  return !!(
+    data['creator-username']?.value ||
+    data['username']?.value ||
+    data.bio?.value ||
+    data['creator-username'] ||
+    data.username ||
+    data.bio
+  );
 }
 
 // ============================================================
@@ -205,11 +203,12 @@ export const updatePublicUserProfile = async (userAddress, displayName, bio) => 
 export const getCreatorProfile = async (creatorAddress) => {
   try {
     const result = await readOnly(
-      CONTRACTS.MAIN.name,
-      MAIN_FUNCTIONS.GET_CREATOR_PROFILE,
+      'storage-v4',
+      'get-creator-profile',
       [principalCV(creatorAddress)]
     );
-    return isValidProfile(result) ? result : null;
+    if (!isValidProfile(result)) return null;
+    return result.value || result;
   } catch (e) {
     return null;
   }
@@ -218,11 +217,12 @@ export const getCreatorProfile = async (creatorAddress) => {
 export const getPublicUserProfile = async (userAddress) => {
   try {
     const result = await readOnly(
-      CONTRACTS.MAIN.name,
-      MAIN_FUNCTIONS.GET_PUBLIC_USER_PROFILE,
+      'storage-v4',
+      'get-public-user-profile',
       [principalCV(userAddress)]
     );
-    return isValidProfile(result) ? result : null;
+    if (!result || Object.keys(result).length === 0) return null;
+    return result;
   } catch (e) {
     return null;
   }

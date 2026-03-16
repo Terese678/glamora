@@ -12,14 +12,14 @@ export const DEPLOYER_ADDRESS = 'STPC6F6C2M7QAXPW66XW4Q0AGXX9HGAX6525RMF8';
 
 export const CONTRACT_CONFIG = {
   address: DEPLOYER_ADDRESS,
-  name: 'main-v11',
+  name: 'main-v13',
   DEPLOYER_ADDRESS,
 };
 
 export const CONTRACTS = {
   MAIN: {
     address: DEPLOYER_ADDRESS,
-    name: 'main-v11'
+    name: 'main-v13'
   },
   
   STORAGE: {
@@ -29,7 +29,7 @@ export const CONTRACTS = {
   
   BRIDGE_ADAPTER: {
     address: DEPLOYER_ADDRESS,
-    name: 'bridge-adapter-v2'
+    name: 'bridge-adapter-v5'
   },
   
   USDCX_TOKEN: {

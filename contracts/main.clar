@@ -52,7 +52,7 @@
 (define-constant CONTRACT-ADDRESS tx-sender)
 
 ;; Bridge-adapter contract reference for payment intelligence
-(define-constant BRIDGE-ADAPTER .bridge-adapter-v3)
+(define-constant BRIDGE-ADAPTER .bridge-adapter-v5)
 
 ;; Payment source types (matches bridge-adapter constants)
 (define-constant SOURCE-BRIDGE u1)     ;; Payment came from Ethereum bridge
@@ -617,7 +617,7 @@
         ;; INITIALIZE CREATOR VAULT
         ;; Create earnings vault for this new creator to accumulate tips and save gas fees
         ;; Vault starts with zero balance and $50 default withdrawal threshold
-        (unwrap! (contract-call? .bridge-adapter-v3 initialize-vault tx-sender) ERR-VAULT-INIT-FAILED)
+        (unwrap! (contract-call? .bridge-adapter-v5 initialize-vault tx-sender) ERR-VAULT-INIT-FAILED)
 
         ;; SUCCESS 
         (print {
@@ -911,7 +911,7 @@
         ;; For USDCx tips, deposit to vault instead of direct transfer to save gas fees
         ;; sBTC tips go direct because Bitcoin holders prefer immediate access
         (if (is-eq payment-token TOKEN-USDCX)
-            (unwrap! (contract-call? .bridge-adapter-v3 deposit-to-vault creator creator-amount) ERR-TRANSFER-FAILED)
+            (unwrap! (contract-call? .bridge-adapter-v5 deposit-to-vault creator creator-amount) ERR-TRANSFER-FAILED)
             true  ;; For sBTC, skip vault deposit (already transferred directly)
         )
 
@@ -919,7 +919,7 @@
         ;; Track whether this payment came from bridge or native wallet
         ;; For now, we assume native (SOURCE-NATIVE = u2) since bridging isn't live yet
         ;; When xReserve launches, we'll detect bridge deposits automatically
-        (unwrap! (contract-call? .bridge-adapter-v3 record-payment-source 
+        (unwrap! (contract-call? .bridge-adapter-v5 record-payment-source 
                     tx-sender 
                     tip-amount 
                     SOURCE-NATIVE) 
@@ -1097,13 +1097,13 @@
         ;; STEP 3: DEPOSIT TO CREATOR VAULT (for USDCx only)
         ;; For USDCx subscriptions, deposit to vault to save gas fees
         (if (is-eq payment-token TOKEN-USDCX)
-            (unwrap! (contract-call? .bridge-adapter-v3 deposit-to-vault creator creator-amount) ERR-STORAGE-FAILED)
+            (unwrap! (contract-call? .bridge-adapter-v5 deposit-to-vault creator creator-amount) ERR-STORAGE-FAILED)
             true  ;; sBTC goes direct
         )
 
         ;; STEP 4: RECORD PAYMENT SOURCE
         ;; Track subscription payment source for analytics
-        (unwrap! (contract-call? .bridge-adapter-v3 record-payment-source 
+        (unwrap! (contract-call? .bridge-adapter-v5 record-payment-source 
                     tx-sender 
                     subscription-price 
                     SOURCE-NATIVE) 
@@ -1197,19 +1197,19 @@
 ;; Get creator's vault balance and earnings report
 ;; Shows total earned, available balance, and Nigerian Naira equivalent
 (define-public (get-creator-vault-info (creator principal))
-    (contract-call? .bridge-adapter-v3 get-earnings-stability-report creator)
+    (contract-call? .bridge-adapter-v5 get-earnings-stability-report creator)
 )
 
 ;; Get payment source statistics for a user
 ;; Shows how much they've bridged vs used from native wallet
 (define-public (get-user-payment-sources (user principal))
-    (contract-call? .bridge-adapter-v3 get-payment-source-stats user)
+    (contract-call? .bridge-adapter-v5 get-payment-source-stats user)
 )
 
 ;; Let creator update their vault withdrawal threshold
 ;; Default is $50, but high-earners might prefer $100 or $200
 (define-public (set-vault-threshold (new-threshold uint))
-    (contract-call? .bridge-adapter-v3 update-withdrawal-threshold tx-sender new-threshold)
+    (contract-call? .bridge-adapter-v5 update-withdrawal-threshold tx-sender new-threshold)
 )
 
 ;; Withdraw from creator vault to Ethereum
@@ -1218,7 +1218,7 @@
 (define-public (withdraw-from-vault (withdrawal-amount uint))
     (begin
         ;; TODO: Integrate with xReserve bridge to transfer USDCx to Ethereum
-        (unwrap! (contract-call? .bridge-adapter-v3 complete-vault-withdrawal 
+        (unwrap! (contract-call? .bridge-adapter-v5 complete-vault-withdrawal 
                     tx-sender 
                     withdrawal-amount) 
             ERR-TRANSFER-FAILED)
