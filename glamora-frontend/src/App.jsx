@@ -586,9 +586,8 @@ function App() {
           <button onClick={() => navigateTo('create')}>Publish Content</button>
         )}
         <button onClick={() => navigateTo('marketplace')}>Marketplace</button>
-        <button onClick={() => navigateTo('tip')}>Send Tip</button>
         {userAddress && userProfile && (
-          <button onClick={() => navigateTo('usdcx-tipping')}>USDCx Tipping</button>
+          <button onClick={() => navigateTo('usdcx-tipping')}>Send Tip</button>
         )}
       </nav>
 
