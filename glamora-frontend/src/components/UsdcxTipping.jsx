@@ -115,7 +115,7 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
     try {
       const amount = 100000000; // 100 USDCx
       
-      await contractCalls.mintTestUSDCx(userAddress, amount);
+      await contractCalls.mintTestUSDCx(amount, userAddress);
       
       setMessage('SUCCESS: 100 USDCx minted! Click Refresh to update balance.');
       
@@ -180,8 +180,7 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
       
       setMessage('Processing: Please approve the transaction in your wallet...');
 
-      // CORRECT: Pass recipient first, then amount in micro-units
-      await contractCalls.tipWithUSDCx(userAddress, recipientAddress, tipAmountMicro);
+      await contractCalls.tipCreator(1, tipAmountMicro, 'Great fashion content!', 2);
 
       setMessage('SUCCESS: Tip sent successfully! Transaction submitted to blockchain.');
       
@@ -303,21 +302,31 @@ const UsdcxTipping = ({ userAddress, userProfile }) => {
         </div>
       )}
 
-      {vaultInfo && vaultInfo.initialized && (
+      {vaultInfo && (
         <div className="vault-stats-card">
           <h3>Your Vault Statistics</h3>
           <div className="stats-grid">
             <div className="stat-item">
-              <span className="stat-label">Tips Batched</span>
-              <span className="stat-value">{vaultInfo.totalBatched || 0}</span>
+              <span className="stat-label">Available Balance</span>
+              <span className="stat-value">{vaultInfo['available-balance']?.value 
+                ? (Number(vaultInfo['available-balance'].value) / 1000000).toFixed(2) 
+                : '0.00'} USDCx</span>
             </div>
             <div className="stat-item">
-              <span className="stat-label">Total Batches</span>
-              <span className="stat-value">{vaultInfo.batchCount || 0}</span>
+              <span className="stat-label">Withdrawal Threshold</span>
+              <span className="stat-value">{vaultInfo['withdrawal-threshold']?.value 
+                ? (Number(vaultInfo['withdrawal-threshold'].value) / 1000000).toFixed(2) 
+                : '50.00'} USDCx</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label">Total Earned</span>
+              <span className="stat-value">{vaultInfo['total-earned']?.value 
+                ? (Number(vaultInfo['total-earned'].value) / 1000000).toFixed(2) 
+                : '0.00'} USDCx</span>
             </div>
           </div>
           <p className="vault-benefit">
-            Vault batching saves up to 70% on gas fees!
+            Vault accumulates until $50 threshold — then ONE withdrawal saves 70% on gas fees!
           </p>
         </div>
       )}
