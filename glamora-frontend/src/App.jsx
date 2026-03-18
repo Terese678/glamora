@@ -10,6 +10,7 @@ import Profile from './Profile';
 import * as contractCalls from './contractCalls';
 
 import UsdcxTipping from './components/UsdcxTipping';
+import X402Content from './components/X402Content';
 
 function App() {
   // State variables: they store information that changes as users interact
@@ -519,7 +520,7 @@ function App() {
       
       await contractCalls.listNFTForSale(
         parseInt(listTokenId),
-        parseFloat(listPrice)
+        parseInt(listPrice)
       );
       
       setMessage('NFT listed successfully!');
@@ -589,6 +590,7 @@ function App() {
         {userAddress && userProfile && (
           <button onClick={() => navigateTo('usdcx-tipping')}>Send Tip</button>
         )}
+        <button onClick={() => navigateTo('x402')}>Premium Content</button>
       </nav>
 
       {/* Main Content Area */}
@@ -1019,7 +1021,7 @@ function App() {
                                   <label>Maximum Price You'll Pay (STX):</label>
                                   <input
                                     type="number"
-                                    step="0.01"
+                                    step="1"
                                     value={maxBuyPrice}
                                     onChange={(e) => setMaxBuyPrice(e.target.value)}
                                     placeholder={(nftDetails.listing.price / 1000000 * 1.05).toFixed(2)}
@@ -1201,15 +1203,15 @@ function App() {
                       </div>
                       
                       <div className="form-group">
-                        <label>Sale Price (in STX):</label>
+                        <label>Sale Price (in sBTC):</label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="1"
+                          min="1"
                           value={listPrice}
                           onChange={(e) => setListPrice(e.target.value)}
                           required
-                          placeholder="Minimum: 0.01 STX"
+                          placeholder="Minimum: 1 micro-sBTC"
                         />
                         <small>You'll receive 95% after platform fee</small>
                       </div>
@@ -1243,6 +1245,10 @@ function App() {
               </div>
             )}
           </div>
+        )}
+
+        {currentView === 'x402' && (
+          <X402Content userAddress={userAddress} />
         )}
         
         {/* USDCX TIPPING VIEW */}
