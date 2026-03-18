@@ -522,6 +522,32 @@ export const getSbtcBalance = async (address) => {
   return 0;
 };
 
+export const getVaultInfo = async (creatorAddress) => {
+  try {
+    const result = await readOnly(
+      'storage-v4',
+      'get-creator-vault',
+      [principalCV(creatorAddress)]
+    );
+    return result?.value || result;
+  } catch (e) {
+    return null;
+  }
+};
+
+export const getBatchStats = async () => {
+  try {
+    const result = await readOnly(
+      CONTRACTS.MAIN.name,
+      'get-platform-stats',
+      []
+    );
+    return result?.value || result;
+  } catch (e) {
+    return null;
+  }
+};
+
 // ============================================================
 // PLATFORM STATS
 // ============================================================
